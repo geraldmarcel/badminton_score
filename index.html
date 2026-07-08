@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Badminton Score & Matchmaker</title>
+    <title>Super Badminton Matchmaker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -11,31 +11,34 @@
 </head>
 <body class="bg-slate-950 text-white min-h-screen p-4 antialiased">
 
-    <div class="max-w-md mx-auto">
+    <div class="max-w-xl mx-auto">
         <header class="text-center my-4">
-            <h1 class="text-3xl font-black tracking-tight text-lime-400">MABAR PB</h1>
-            <p class="text-slate-500 text-xs font-semibold tracking-wider uppercase">Realtime Matchmaker</p>
+            <h1 class="text-3xl font-black tracking-tight text-lime-400">PB MABAR DASHBOARD</h1>
+            <p class="text-slate-500 text-xs font-semibold tracking-wider uppercase">Realtime Multi-Device Matchmaker</p>
         </header>
 
         <nav class="flex bg-slate-900 p-1 rounded-xl mb-6 border border-slate-800">
-            <button id="tab-matchmaking" class="flex-1 text-center py-2 text-sm font-bold rounded-lg bg-lime-500 text-slate-950 transition">
+            <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg bg-lime-500 text-slate-950 transition">
                 🏸 Matchmaking
             </button>
-            <button id="tab-database" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition">
+            <button id="btn-tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition">
+                🏆 Klasemen Poin
+            </button>
+            <button id="btn-tab-database" onclick="switchTab('database')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition">
                 👥 Data Pemain
             </button>
         </nav>
 
-        <main id="app" class="space-y-6">
+        <main id="app-content" class="space-y-6">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl my-10 flex flex-col items-center justify-center min-h-[250px]">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-lime-500 mb-4"></div>
-                <h3 class="text-lg font-bold text-slate-200">Sinkronisasi Database...</h3>
-                <p class="text-slate-500 text-xs mt-1">Menghubungkan koneksi mabar real-time...</p>
+                <h3 class="text-lg font-bold text-slate-200">Sinkronisasi Realtime Firebase...</h3>
+                <p class="text-slate-500 text-xs mt-1">Mengunduh data klasemen terbaru...</p>
             </div>
         </main>
 
         <footer class="text-center mt-12 mb-6">
-            <p class="text-slate-700 text-[10px] tracking-widest uppercase">Realtime Sync Active • v2.0</p>
+            <p class="text-slate-800 text-[10px] tracking-widest uppercase">Engine Version 3.0 • Multi-device Live Sync</p>
         </footer>
     </div>
 
