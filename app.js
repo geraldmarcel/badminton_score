@@ -20,12 +20,12 @@ let globalPlayers = {};
 let globalHistory = {};
 let currentSchedule = {};
 let currentActiveTab = 'matchmaking';
-let isLayoutRendered = false; // Flag untuk mencegah layout utama ditulis ulang terus-menerus
+let isLayoutRendered = false;
 
 // Global Tab Switcher Function
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
-    isLayoutRendered = false; // Reset flag agar layout tab baru digambar ulang
+    isLayoutRendered = false; 
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
@@ -45,10 +45,10 @@ window.switchTab = function(tabName) {
 };
 
 // ==========================================
-// RENDER LAYOUT STRUKTUR UTAMA (Hanya Sekali per Tab)
+// RENDER LAYOUT STRUKTUR UTAMA
 // ==========================================
 function renderTabStructure() {
-    if (isLayoutRendered) return; // Jika struktur sudah ada, stop. Jangan hancurkan DOM.
+    if (isLayoutRendered) return;
 
     if (currentActiveTab === 'database') {
         appContent.innerHTML = `
@@ -97,7 +97,7 @@ function renderTabStructure() {
 
             <div class="flex gap-2">
                 <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider">
-                    🎲 Generate 10 Matches
+                    🎲 Generate 10 Random Matches
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-4 py-3.5 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg">
                     💾 Save Daily Session
@@ -111,12 +111,9 @@ function renderTabStructure() {
         `;
     }
     isLayoutRendered = true;
-    refreshActiveListData(); // Isi data kontainer list setelah layout siap
+    refreshActiveListData();
 }
 
-// ==========================================
-// SINKRONISASI DATA KE ELEMEN KONTEN
-// ==========================================
 function refreshActiveListData() {
     if (currentActiveTab === 'database') updateDatabasePemainList();
     if (currentActiveTab === 'leaderboard') updateLeaderboardList();
@@ -128,7 +125,7 @@ function refreshActiveListData() {
 // ==========================================
 db.ref('badminton/players').on('value', (snapshot) => {
     globalPlayers = snapshot.val() || {};
-    renderTabStructure(); // Panggil fungsi pintar layout
+    renderTabStructure();
     refreshActiveListData();
 });
 
@@ -194,6 +191,9 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'pending') {
                 let affected = false;
+                
+                // Mengocok pemain pengganti agar tidak monoton memilih orang yang sama jika match_count sama
+                activePlayersList.sort(() => Math.random() - 0.5);
                 activePlayersList.sort((a,b) => a.match_count - b.match_count);
 
                 if (m.idA1 === id) { m.pA1 = activePlayersList[0].name; m.idA1 = activePlayersList[0].id; affected = true; }
@@ -234,7 +234,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// BULK MATCH GENERATOR (10 FIXTURES)
+// HIGHLY RANDOM MATCH GENERATOR (FAIR PLAY & SHUFFLED)
 // ==========================================
 window.generate10Matches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -246,30 +246,53 @@ window.generate10Matches = function() {
     let tempPlayers = JSON.parse(JSON.stringify(globalPlayers));
     let matchesObj = {};
 
+    // Standard Fisher-Yates Shuffle untuk mengacak urutan array
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
     for (let i = 1; i <= 10; i++) {
-        let sorted = Object.values(tempPlayers)
-            .filter(p => p.is_active)
-            .sort((a, b) => a.match_count - b.match_count);
+        let pool = Object.values(tempPlayers).filter(p => p.is_active);
+        
+        // 1. Acak urutan pool secara total terlebih dahulu
+        pool = shuffleArray(pool);
+        
+        // 2. Sort berdasarkan match_count. Karena sudah di-shuffle sebelumnya,
+        // pemain dengan match_count yang sama akan memiliki urutan acak yang adil.
+        pool.sort((a, b) => a.match_count - b.match_count);
 
-        let c = sorted.slice(0, 4);
-        let p1 = c[0], p2 = c[1], p3 = c[2], p4 = c[3];
+        // Ambil 4 orang prioritas utama hasil kocokan adil
+        let selected = pool.slice(0, 4);
+        let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
 
+        // Buat 3 kemungkinan kombinasi tim ganda dari 4 orang terpilih
         let combos = [
             { tA: [p1, p2], tB: [p3, p4] },
             { tA: [p1, p3], tB: [p2, p4] },
             { tA: [p1, p4], tB: [p2, p3] }
         ];
 
+        // Cari kombinasi pasangannya yang history-nya paling minim/belum pernah ketemu
         let bestCombo = combos[0];
-        let minScore = Infinity;
+        let minHistoryWeight = Infinity;
 
         combos.forEach(combo => {
-            let score = 0;
-            score += getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner');
-            score += getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-            if (score < minScore) { minScore = score; bestCombo = combo; }
+            let weight = 0;
+            // Cek kedekatan history sebagai partner (usahakan cari kombinasi partner baru)
+            weight += getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 2;
+            weight += getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 2;
+            
+            if (weight < minHistoryWeight) {
+                minHistoryWeight = weight;
+                bestCombo = combo;
+            }
         });
 
+        // Update match count simulasi
         tempPlayers[bestCombo.tA[0].id].match_count++;
         tempPlayers[bestCombo.tA[1].id].match_count++;
         tempPlayers[bestCombo.tB[0].id].match_count++;
@@ -282,7 +305,7 @@ window.generate10Matches = function() {
             pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
             pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
             pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id,
-            status: 'pending', winner: '', scoreA: '', scoreB: ''
+            status: 'pending', winner: '', scoreA: 0, scoreB: 0 // Nilai awal diset ke 0
         };
     }
     db.ref('badminton/current_schedule').set(matchesObj);
@@ -343,6 +366,10 @@ function updateScheduleList() {
 
     mList.forEach(m => {
         const isDone = m.status === 'done';
+        // Memberikan nilai default 0 jika data score kosong/belum diisi
+        const displayScoreA = (m.scoreA !== undefined && m.scoreA !== "") ? m.scoreA : 0;
+        const displayScoreB = (m.scoreB !== undefined && m.scoreB !== "") ? m.scoreB : 0;
+
         html += `
             <div class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-40' : 'border-slate-800/80'} shadow-inner">
                 <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
@@ -356,16 +383,16 @@ function updateScheduleList() {
                         ${m.pA1} & ${m.pA2}
                     </div>
                     
-                    <!-- Scoring System Box aligned with SENA scheme -->
+                    <!-- Scoring System Box (Default Value 0) -->
                     <div class="flex items-center justify-center gap-1 w-[18%]">
                         ${isDone ? `
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${m.scoreA}</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
                             <span class="text-slate-600 font-bold">:</span>
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${m.scoreB}</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreB}</span>
                         ` : `
-                            <input type="number" id="input-score-A-${m.id}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
+                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                             <span class="text-slate-700 font-bold">:</span>
-                            <input type="number" id="input-score-B-${m.id}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
+                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                         `}
                     </div>
 
@@ -383,7 +410,7 @@ function updateScheduleList() {
             </div>
         `;
     });
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button to organize today's court rotations.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Random Matches' button to organize today's court rotations.</p>`;
 }
 
 // ==========================================
