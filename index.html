@@ -4,34 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SENA BADMINTON CLUB</title>
+    <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- LOAD FIREBASE GLOBAL SCRIPTS (V8 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
-<body class="bg-[#0b0f17] text-white min-h-screen p-4 antialiased">
+<body class="bg-[#0B0F17] text-white min-h-screen p-4 antialiased">
 
     <div class="max-w-xl mx-auto">
+        <!-- Application Header -->
         <header class="text-center my-6">
-            <h1 class="text-3xl font-black tracking-wider text-[#ff5722]">SENA <span class="text-white font-light">BADMINTON CLUB</span></h1>
+            <h1 class="text-3xl font-black tracking-wider text-[#FF5722]">SENA <span class="text-white font-light">BADMINTON CLUB</span></h1>
             <p class="text-slate-500 text-[10px] font-bold tracking-widest uppercase mt-1">Engineered for Champions</p>
         </header>
 
-        <nav class="flex bg-[#121824] p-1 rounded-xl mb-6 border border-slate-800/60">
-            <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg bg-[#ff5722] text-white transition duration-200">
+        <!-- Navigation Tabs -->
+        <nav class="flex bg-[#1E2638] p-1 rounded-xl mb-6 border border-slate-800/60">
+            <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg bg-[#FF5722] text-white transition duration-200">
                 🏸 Matchmaking
             </button>
             <button id="btn-tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
                 🏆 Leaderboard
             </button>
             <button id="btn-tab-database" onclick="switchTab('database')" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
-                👥 Roster Database
+                👥 Member Database
             </button>
         </nav>
 
+        <!-- Main Application Container -->
         <main id="app-content" class="space-y-6">
-            <div class="bg-[#121824] border border-slate-800/40 rounded-2xl p-8 text-center shadow-xl my-10 flex flex-col items-center justify-center min-h-[250px]">
-                <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-[#ff5722] mb-4"></div>
+            <!-- Initial Loading Screen -->
+            <div class="bg-[#1E2638] border border-slate-800/40 rounded-2xl p-8 text-center shadow-xl my-10 flex flex-col items-center justify-center min-h-[250px]">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-[#FF5722] mb-4"></div>
                 <h3 class="text-lg font-bold text-slate-200">Synchronizing Database...</h3>
                 <p class="text-slate-500 text-xs mt-1">Connecting to live club network...</p>
             </div>
