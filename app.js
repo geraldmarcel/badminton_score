@@ -19,6 +19,7 @@ const appContent = document.getElementById('app-content');
 let globalPlayers = {};
 let globalHistory = {};
 let currentSchedule = {};
+let matchHistoryLogs = {}; // Menyimpan riwayat log pertandingan global
 let currentActiveTab = 'matchmaking';
 let isLayoutRendered = false;
 
@@ -135,9 +136,13 @@ db.ref('badminton/history').on('value', (snapshot) => {
 
 db.ref('badminton/current_schedule').on('value', (snapshot) => {
     currentSchedule = snapshot.val() || {};
-    if (currentActiveTab === 'matchmaking') {
-        updateScheduleList();
-    }
+    if (currentActiveTab === 'matchmaking') updateScheduleList();
+});
+
+// Listener baru untuk mengambil Log Riwayat Pertandingan mendalam
+db.ref('badminton/match_history').on('value', (snapshot) => {
+    matchHistoryLogs = snapshot.val() || {};
+    if (currentActiveTab === 'leaderboard') updateLeaderboardList();
 });
 
 // ==========================================
@@ -178,32 +183,23 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: MATCHMAKING & AUTO-SUBSTITUTION (FIXED: NO DUPLICATE SIDES)
+// TAB: MATCHMAKING & AUTO-SUBSTITUTION
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus });
 
-    // Jika pemain di-uncheck (istirahat) dan ada jadwal berjalan
     if (nextStatus === false && Object.keys(currentSchedule).length > 0) {
         let scheduleUpdates = {};
         
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'pending') {
-                // Cek apakah pemain yang istirahat berada di pertandingan ini
                 if (m.idA1 === id || m.idA2 === id || m.idB1 === id || m.idB2 === id) {
-                    
-                    // Kumpulkan semua ID pemain yang saat ini ada di match ini (agar tidak dipilih jadi pengganti)
                     let currentInMatchIds = [m.idA1, m.idA2, m.idB1, m.idB2];
-                    
-                    // Filter pemain aktif yang TIDAK sedang bermain di match ini, dan BUKAN pemain yang sedang istirahat
                     let candidatePlayers = Object.values(globalPlayers).filter(p => 
-                        p.is_active && 
-                        p.id !== id && 
-                        !currentInMatchIds.includes(p.id)
+                        p.is_active && p.id !== id && !currentInMatchIds.includes(p.id)
                     );
 
-                    // Jika kandidat memadai, pilih yang match_count paling sedikit (prioritas main)
                     if (candidatePlayers.length > 0) {
                         candidatePlayers.sort(() => Math.random() - 0.5);
                         candidatePlayers.sort((a, b) => a.match_count - b.match_count);
@@ -216,7 +212,6 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
                         else if (m.idB2 === id) { m.pB2 = substitute.name; m.idB2 = substitute.id; }
 
                         scheduleUpdates[`badminton/current_schedule/${m.id}`] = m;
-                        // Tambahkan match count pengganti secara real-time
                         db.ref(`badminton/players/${substitute.id}`).update({
                             match_count: (substitute.match_count || 0) + 1
                         });
@@ -251,7 +246,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// TRUE RANDOM MATCH GENERATOR (HIGH VARIATION)
+// TRUE RANDOM MATCH GENERATOR
 // ==========================================
 window.generate10Matches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -265,12 +260,7 @@ window.generate10Matches = function() {
 
     for (let i = 1; i <= 10; i++) {
         let pool = Object.values(tempPlayers).filter(p => p.is_active);
-        
-        pool.sort((a, b) => {
-            const scoreA = a.match_count + (Math.random() * 0.49);
-            const scoreB = b.match_count + (Math.random() * 0.49);
-            return scoreA - scoreB;
-        });
+        pool.sort((a, b) => (a.match_count + Math.random() * 0.49) - (b.match_count + Math.random() * 0.49));
 
         let selected = pool.slice(0, 4);
         let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
@@ -285,14 +275,8 @@ window.generate10Matches = function() {
         let minHistoryWeight = Infinity;
 
         combos.forEach(combo => {
-            let weight = 0;
-            weight += getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 3;
-            weight += getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 3;
-            
-            if (weight < minHistoryWeight) {
-                minHistoryWeight = weight;
-                bestCombo = combo;
-            }
+            let weight = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 3 + getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 3;
+            if (weight < minHistoryWeight) { minHistoryWeight = weight; bestCombo = combo; }
         });
 
         tempPlayers[bestCombo.tA[0].id].match_count++;
@@ -301,8 +285,7 @@ window.generate10Matches = function() {
         tempPlayers[bestCombo.tB[1].id].match_count++;
 
         matchesObj[`m_${i}`] = {
-            id: `m_${i}`,
-            gameNo: i,
+            id: `m_${i}`, gameNo: i,
             pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
             pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
             pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
@@ -320,7 +303,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// REAL SCORE SUBMISSION SYSTEM (SAFE & INSTANT)
+// SUBMIT SCORE (DENGAN INJEKSI LOG MATCH HISTORY)
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -330,11 +313,12 @@ window.submitSkorGame = function(matchId) {
     const valB = parseInt(document.getElementById(`input-score-B-${matchId}`).value);
 
     if (isNaN(valA) || isNaN(valB)) {
-        alert("Please fill in valid scores for both teams before saving!");
+        alert("Please fill in valid scores!");
         return;
     }
 
     const timPemenang = valA >= valB ? 'A' : 'B';
+    const hariIni = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
     let updates = {};
     
     updates[`badminton/current_schedule/${matchId}/status`] = 'done';
@@ -343,20 +327,14 @@ window.submitSkorGame = function(matchId) {
     updates[`badminton/current_schedule/${matchId}/scoreB`] = valB;
 
     if (match.status === 'pending') {
-        const playersInGame = [
-            { id: match.idA1 },
-            { id: match.idA2 },
-            { id: match.idB1 },
-            { id: match.idB2 }
-        ];
-        
-        playersInGame.forEach(p => {
-            if (p.id && globalPlayers[p.id]) {
-                const currentCount = globalPlayers[p.id].match_count || 0;
-                updates[`badminton/players/${p.id}/match_count`] = currentCount + 1;
+        // Skema Tambah match_count pemain harian
+        [match.idA1, match.idA2, match.idB1, match.idB2].forEach(pId => {
+            if (pId && globalPlayers[pId]) {
+                updates[`badminton/players/${pId}/match_count`] = (globalPlayers[pId].match_count || 0) + 1;
             }
         });
 
+        // Simpan partner history
         if (match.idA1 && match.idA2) {
             const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
             updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
@@ -365,17 +343,24 @@ window.submitSkorGame = function(matchId) {
             const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
             updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
         }
+
+        // --- INJEKSI DATA DETAIL LOG RIWAYAT BARU ---
+        const logId = 'log_' + Date.now() + '_' + matchId;
+        updates[`badminton/match_history/${logId}`] = {
+            date: hariIni,
+            pA1: match.pA1, idA1: match.idA1,
+            pA2: match.pA2, idA2: match.idA2,
+            pB1: match.pB1, idB1: match.idB1,
+            pB2: match.pB2, idB2: match.idB2,
+            scoreA: valA, scoreB: valB, winner: timPemenang
+        };
     }
 
-    db.ref().update(updates).catch(error => {
-        console.error("Firebase update failed:", error);
-    });
+    db.ref().update(updates);
 };
 
 window.bukaEditSkorGame = function(matchId) {
-    db.ref(`badminton/current_schedule/${matchId}`).update({
-        status: 'pending'
-    });
+    db.ref(`badminton/current_schedule/${matchId}`).update({ status: 'pending' });
 };
 
 function updateScheduleList() {
@@ -387,62 +372,48 @@ function updateScheduleList() {
 
     mList.forEach(m => {
         const isDone = m.status === 'done';
-        const displayScoreA = (m.scoreA !== undefined && m.scoreA !== "") ? m.scoreA : 0;
-        const displayScoreB = (m.scoreB !== undefined && m.scoreB !== "") ? m.scoreB : 0;
+        const displayScoreA = m.scoreA || 0;
+        const displayScoreB = m.scoreB || 0;
 
-        // Tambahkan id unik untuk setiap element card match agar bisa di-target scroll
         html += `
-            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner transition duration-200">
+            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner">
                 <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                 </div>
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-2">
-                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
-                        ${m.pA1} & ${m.pA2}
-                    </div>
-                    
+                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
                     <div class="flex items-center justify-center gap-1 w-[18%]">
                         ${isDone ? `
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
-                            <span class="text-slate-600 font-bold">:</span>
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreB}</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded">${displayScoreA}</span>
+                            <span class="text-slate-600">:</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded">${displayScoreB}</span>
                         ` : `
-                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
-                            <span class="text-slate-700 font-bold">:</span>
-                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
+                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none">
+                            <span class="text-slate-700">:</span>
+                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none">
                         `}
                     </div>
-
-                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
-                        ${m.pB1} & ${m.pB2}
-                    </div>
+                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pB1} & ${m.pB2}</div>
                 </div>
 
                 ${!isDone ? `
-                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] border border-slate-800/80 hover:border-transparent transition duration-200 uppercase tracking-widest">
-                        💾 Save Score
-                    </button>
+                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] transition uppercase tracking-widest">💾 Save Score</button>
                 ` : `
-                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-3 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 hover:text-slate-300 font-bold py-1 rounded-lg text-[9px] border border-slate-900/60 transition duration-200 uppercase tracking-widest">
-                        ✏️ Edit Score
-                    </button>
+                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-3 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 font-bold py-1 rounded-lg text-[9px] transition uppercase tracking-widest">✏️ Edit Score</button>
                 `}
             </div>
         `;
     });
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Random Matches' button to organize today's court rotations.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Random Matches' button.</p>`;
 
-    // FITUR AUTO-SCROLL KE MATCH PENDING TERATAS
     if (mList.length > 0) {
         const firstPendingMatch = mList.find(m => m.status === 'pending');
         if (firstPendingMatch) {
             setTimeout(() => {
                 const targetCard = document.getElementById(`card-match-no-${firstPendingMatch.gameNo}`);
-                if (targetCard) {
-                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
+                if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 100);
         }
     }
@@ -452,14 +423,13 @@ function updateScheduleList() {
 // SESSION END & STATS UPDATE ARCHIVE
 // ==========================================
 window.simpanSesiHarian = function() {
-    if (!confirm("Are you sure you want to end today's session? All saved match points will be officially injected into the global Leaderboard!")) return;
+    if (!confirm("End today's session? All saved match points will be officially injected into the Leaderboard!")) return;
 
     let updates = {};
     const matches = Object.values(currentSchedule);
 
     matches.forEach(m => {
         if (m.status !== 'done') return; 
-        
         if (m.scoreA > m.scoreB) {
             updates[`badminton/players/${m.idA1}/win`] = (globalPlayers[m.idA1]?.win || 0) + 1;
             updates[`badminton/players/${m.idA2}/win`] = (globalPlayers[m.idA2]?.win || 0) + 1;
@@ -477,13 +447,13 @@ window.simpanSesiHarian = function() {
     updates['badminton/current_schedule'] = null;
 
     db.ref().update(updates).then(() => {
-        alert("Session saved successfully! Check out the updated leaderboard standing.");
+        alert("Session saved successfully!");
         switchTab('leaderboard');
     });
 };
 
 // ==========================================
-// TAB: LEADERBOARD CALCULATION VIEW
+// TAB: LEADERBOARD VIEW WITH INTERACTIVE HOVER TOOLTIP LOGS
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
@@ -499,10 +469,52 @@ function updateLeaderboardList() {
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     playersList.forEach((p, idx) => {
+        // Generate Log List Khusus Pemain ini saat di-hover
+        let tooltipRowsHtml = '';
+        const logsArray = Object.values(matchHistoryLogs).filter(log => 
+            log.idA1 === p.id || log.idA2 === p.id || log.idB1 === p.id || log.idB2 === p.id
+        );
+
+        // Ambil maksimal 5 riwayat pertandingan terakhir agar pop-up tooltip tidak kepanjangan
+        logsArray.slice(-5).reverse().forEach(log => {
+            const isTeamA = (log.idA1 === p.id || log.idA2 === p.id);
+            const isWinner = (isTeamA && log.winner === 'A') || (!isTeamA && log.winner === 'B');
+            
+            const partnerName = isTeamA ? (log.idA1 === p.id ? log.pA2 : log.pA1) : (log.idB1 === p.id ? log.pB2 : log.pB1);
+            const opponentString = isTeamA ? `${log.pB1}/${log.pB2}` : `${log.pA1}/${log.pA2}`;
+            const finalScoreStr = `${log.scoreA}-${log.scoreB}`;
+
+            tooltipRowsHtml += `
+                <div class="flex justify-between items-center text-[10px] py-1 border-b border-slate-800/60 gap-4">
+                    <span class="font-bold ${isWinner ? 'text-emerald-500' : 'text-red-400'} uppercase shrink-0">${isWinner ? 'WIN' : 'LOSE'}</span>
+                    <span class="text-slate-400 truncate max-w-[120px]">w/ ${partnerName} vs ${opponentString}</span>
+                    <span class="text-white font-extrabold shrink-0 ml-auto bg-[#0B0F17] px-1 rounded">${finalScoreStr}</span>
+                    <span class="text-slate-600 shrink-0 text-[9px]">${log.date}</span>
+                </div>
+            `;
+        });
+
+        if (!tooltipRowsHtml) {
+            tooltipRowsHtml = `<div class="text-[10px] text-slate-500 italic text-center py-2">No history logged yet</div>`;
+        }
+
         html += `
             <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
                 <td class="py-3 px-2 text-center text-slate-500">${idx + 1}</td>
-                <td class="py-3 px-2 text-white">${p.name}</td>
+                
+                <!-- KOLOM NAMA DENGAN HOVER TOOLTIP EFFECT -->
+                <td class="py-3 px-2 text-white relative group cursor-pointer">
+                    <span class="hover:text-[#FF5722] underline decoration-dotted decoration-slate-700 transition duration-150">${p.name}</span>
+                    
+                    <!-- BOX POPUP OVERLAY (TOOLTIP CONTAINER) -->
+                    <div class="absolute left-4 top-8 hidden group-hover:block bg-[#111827] border border-slate-800 p-3 rounded-xl shadow-2xl z-50 w-72 pointer-events-none">
+                        <p class="text-[10px] uppercase font-black tracking-widest text-[#FF5722] mb-1.5">📋 Recent Matches History Log</p>
+                        <div class="space-y-0.5">
+                            ${tooltipRowsHtml}
+                        </div>
+                    </div>
+                </td>
+                
                 <td class="py-3 px-2 text-center text-[#FF5722]">${p.win || 0}</td>
                 <td class="py-3 px-2 text-center text-slate-400">${p.lose || 0}</td>
                 <td class="py-3 px-2 text-center text-[#FF5722] font-extrabold">${p.rate}%</td>
