@@ -19,7 +19,7 @@ const appContent = document.getElementById('app-content');
 let globalPlayers = {};
 let globalHistory = {};
 let currentSchedule = {};
-let matchHistoryLogs = {}; // Menyimpan riwayat log pertandingan global
+let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
 let isLayoutRendered = false;
 
@@ -84,6 +84,20 @@ function renderTabStructure() {
                     </table>
                 </div>
             </div>
+
+            <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-4">
+                <div class="bg-[#1E2638] w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-5 overflow-hidden">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                        <div>
+                            <h3 id="modal-player-name" class="text-sm font-black text-white">Player Name</h3>
+                            <p class="text-[10px] text-[#FF5722] uppercase tracking-wider font-bold">📋 Recent Matches History Log</p>
+                        </div>
+                        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800">&times;</button>
+                    </div>
+                    <div id="modal-history-content" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        </div>
+                </div>
+            </div>
         `;
     } else {
         appContent.innerHTML = `
@@ -139,7 +153,6 @@ db.ref('badminton/current_schedule').on('value', (snapshot) => {
     if (currentActiveTab === 'matchmaking') updateScheduleList();
 });
 
-// Listener baru untuk mengambil Log Riwayat Pertandingan mendalam
 db.ref('badminton/match_history').on('value', (snapshot) => {
     matchHistoryLogs = snapshot.val() || {};
     if (currentActiveTab === 'leaderboard') updateLeaderboardList();
@@ -327,14 +340,12 @@ window.submitSkorGame = function(matchId) {
     updates[`badminton/current_schedule/${matchId}/scoreB`] = valB;
 
     if (match.status === 'pending') {
-        // Skema Tambah match_count pemain harian
         [match.idA1, match.idA2, match.idB1, match.idB2].forEach(pId => {
             if (pId && globalPlayers[pId]) {
                 updates[`badminton/players/${pId}/match_count`] = (globalPlayers[pId].match_count || 0) + 1;
             }
         });
 
-        // Simpan partner history
         if (match.idA1 && match.idA2) {
             const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
             updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
@@ -344,7 +355,6 @@ window.submitSkorGame = function(matchId) {
             updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
         }
 
-        // --- INJEKSI DATA DETAIL LOG RIWAYAT BARU ---
         const logId = 'log_' + Date.now() + '_' + matchId;
         updates[`badminton/match_history/${logId}`] = {
             date: hariIni,
@@ -453,7 +463,7 @@ window.simpanSesiHarian = function() {
 };
 
 // ==========================================
-// TAB: LEADERBOARD VIEW WITH INTERACTIVE HOVER TOOLTIP LOGS
+// TAB: LEADERBOARD VIEW WITH INTERACTIVE CLICK MODAL
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
@@ -469,50 +479,14 @@ function updateLeaderboardList() {
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     playersList.forEach((p, idx) => {
-        // Generate Log List Khusus Pemain ini saat di-hover
-        let tooltipRowsHtml = '';
-        const logsArray = Object.values(matchHistoryLogs).filter(log => 
-            log.idA1 === p.id || log.idA2 === p.id || log.idB1 === p.id || log.idB2 === p.id
-        );
-
-        // Ambil maksimal 5 riwayat pertandingan terakhir agar pop-up tooltip tidak kepanjangan
-        logsArray.slice(-5).reverse().forEach(log => {
-            const isTeamA = (log.idA1 === p.id || log.idA2 === p.id);
-            const isWinner = (isTeamA && log.winner === 'A') || (!isTeamA && log.winner === 'B');
-            
-            const partnerName = isTeamA ? (log.idA1 === p.id ? log.pA2 : log.pA1) : (log.idB1 === p.id ? log.pB2 : log.pB1);
-            const opponentString = isTeamA ? `${log.pB1}/${log.pB2}` : `${log.pA1}/${log.pA2}`;
-            const finalScoreStr = `${log.scoreA}-${log.scoreB}`;
-
-            tooltipRowsHtml += `
-                <div class="flex justify-between items-center text-[10px] py-1 border-b border-slate-800/60 gap-4">
-                    <span class="font-bold ${isWinner ? 'text-emerald-500' : 'text-red-400'} uppercase shrink-0">${isWinner ? 'WIN' : 'LOSE'}</span>
-                    <span class="text-slate-400 truncate max-w-[120px]">w/ ${partnerName} vs ${opponentString}</span>
-                    <span class="text-white font-extrabold shrink-0 ml-auto bg-[#0B0F17] px-1 rounded">${finalScoreStr}</span>
-                    <span class="text-slate-600 shrink-0 text-[9px]">${log.date}</span>
-                </div>
-            `;
-        });
-
-        if (!tooltipRowsHtml) {
-            tooltipRowsHtml = `<div class="text-[10px] text-slate-500 italic text-center py-2">No history logged yet</div>`;
-        }
-
         html += `
             <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
                 <td class="py-3 px-2 text-center text-slate-500">${idx + 1}</td>
                 
-                <!-- KOLOM NAMA DENGAN HOVER TOOLTIP EFFECT -->
-                <td class="py-3 px-2 text-white relative group cursor-pointer">
-                    <span class="hover:text-[#FF5722] underline decoration-dotted decoration-slate-700 transition duration-150">${p.name}</span>
-                    
-                    <!-- BOX POPUP OVERLAY (TOOLTIP CONTAINER) -->
-                    <div class="absolute left-4 top-8 hidden group-hover:block bg-[#111827] border border-slate-800 p-3 rounded-xl shadow-2xl z-50 w-72 pointer-events-none">
-                        <p class="text-[10px] uppercase font-black tracking-widest text-[#FF5722] mb-1.5">📋 Recent Matches History Log</p>
-                        <div class="space-y-0.5">
-                            ${tooltipRowsHtml}
-                        </div>
-                    </div>
+                <td class="py-3 px-2 text-white">
+                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold">
+                        ${p.name}
+                    </span>
                 </td>
                 
                 <td class="py-3 px-2 text-center text-[#FF5722]">${p.win || 0}</td>
@@ -524,6 +498,56 @@ function updateLeaderboardList() {
 
     tbody.innerHTML = html || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical score metrics available yet.</td></tr>`;
 }
+
+// ==========================================
+// LOGIK OPERASIONAL MODAL (SISTEM KLIK)
+// ==========================================
+window.openHistoryModal = function(playerId, playerName) {
+    const modal = document.getElementById('modal-history');
+    const title = document.getElementById('modal-player-name');
+    const content = document.getElementById('modal-history-content');
+    
+    if (!modal || !title || !content) return;
+
+    title.innerText = playerName;
+
+    // Filter log pertandingan berdasarkan Player ID yang diklik
+    const logsArray = Object.values(matchHistoryLogs).filter(log => 
+        log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId
+    );
+
+    let modalRowsHtml = '';
+    // Ambil maksimal 8 riwayat pertandingan terakhir agar tidak terlalu panjang ke bawah
+    logsArray.slice(-8).reverse().forEach(log => {
+        const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
+        const isWinner = (isTeamA && log.winner === 'A') || (!isTeamA && log.winner === 'B');
+        
+        const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
+        const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
+        const finalScoreStr = `${log.scoreA} - ${log.scoreB}`;
+
+        modalRowsHtml += `
+            <div class="flex justify-between items-center text-[11px] py-2 border-b border-slate-800/80 gap-3">
+                <span class="font-black px-1.5 py-0.5 rounded text-[10px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
+                    ${isWinner ? 'WIN' : 'LOSE'}
+                </span>
+                <div class="text-slate-400 truncate max-w-[180px] flex-1">
+                    <span class="text-slate-500">w/</span> ${partnerName} <span class="text-slate-600">vs</span> ${opponentString}
+                </div>
+                <span class="text-white font-black shrink-0 bg-[#0B0F17] px-2 py-0.5 rounded border border-slate-800">${finalScoreStr}</span>
+                <span class="text-slate-600 shrink-0 text-[10px]">${log.date}</span>
+            </div>
+        `;
+    });
+
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No historical matches registered yet for this member.</div>`;
+    modal.classList.remove('hidden');
+};
+
+window.closeHistoryModal = function() {
+    const modal = document.getElementById('modal-history');
+    if (modal) modal.classList.add('hidden');
+};
 
 window.resetSemuaJumlahMain = function() {
     if (!confirm("Force reset everyone's daily match count back to 0?")) return;
