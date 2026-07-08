@@ -12,21 +12,30 @@
 <body class="bg-slate-950 text-white min-h-screen p-4 antialiased">
 
     <div class="max-w-md mx-auto">
-        <header class="text-center my-6">
-            <h1 class="text-3xl font-black tracking-tight text-lime-400">BADMINTON</h1>
-            <p class="text-slate-400 text-xs font-semibold tracking-wider uppercase">Matchmaker & Scoreboard</p>
+        <header class="text-center my-4">
+            <h1 class="text-3xl font-black tracking-tight text-lime-400">MABAR PB</h1>
+            <p class="text-slate-500 text-xs font-semibold tracking-wider uppercase">Realtime Matchmaker</p>
         </header>
+
+        <nav class="flex bg-slate-900 p-1 rounded-xl mb-6 border border-slate-800">
+            <button id="tab-matchmaking" class="flex-1 text-center py-2 text-sm font-bold rounded-lg bg-lime-500 text-slate-950 transition">
+                🏸 Matchmaking
+            </button>
+            <button id="tab-database" class="flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition">
+                👥 Data Pemain
+            </button>
+        </nav>
 
         <main id="app" class="space-y-6">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl my-10 flex flex-col items-center justify-center min-h-[250px]">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-800 border-t-lime-500 mb-4"></div>
-                <h3 class="text-lg font-bold text-slate-200">Menghubungkan ke Firebase</h3>
-                <p class="text-slate-500 text-xs mt-1 max-w-[200px] mx-auto">Memuat konfigurasi database mabar Anda...</p>
+                <h3 class="text-lg font-bold text-slate-200">Sinkronisasi Database...</h3>
+                <p class="text-slate-500 text-xs mt-1">Menghubungkan koneksi mabar real-time...</p>
             </div>
         </main>
 
         <footer class="text-center mt-12 mb-6">
-            <p class="text-slate-600 text-[10px] tracking-widest uppercase">Internal Club App • v1.0</p>
+            <p class="text-slate-700 text-[10px] tracking-widest uppercase">Realtime Sync Active • v2.0</p>
         </footer>
     </div>
 
