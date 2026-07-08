@@ -192,7 +192,6 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
             if (m.status === 'pending') {
                 let affected = false;
                 
-                // Mengocok pemain pengganti agar tidak monoton memilih orang yang sama jika match_count sama
                 activePlayersList.sort(() => Math.random() - 0.5);
                 activePlayersList.sort((a,b) => a.match_count - b.match_count);
 
@@ -234,7 +233,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// HIGHLY RANDOM MATCH GENERATOR (FAIR PLAY & SHUFFLED)
+// TRUE RANDOM MATCH GENERATOR (HIGH VARIATION)
 // ==========================================
 window.generate10Matches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -246,45 +245,31 @@ window.generate10Matches = function() {
     let tempPlayers = JSON.parse(JSON.stringify(globalPlayers));
     let matchesObj = {};
 
-    // Standard Fisher-Yates Shuffle untuk mengacak urutan array
-    function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-    }
-
     for (let i = 1; i <= 10; i++) {
         let pool = Object.values(tempPlayers).filter(p => p.is_active);
         
-        // 1. Acak urutan pool secara total terlebih dahulu
-        pool = shuffleArray(pool);
-        
-        // 2. Sort berdasarkan match_count. Karena sudah di-shuffle sebelumnya,
-        // pemain dengan match_count yang sama akan memiliki urutan acak yang adil.
-        pool.sort((a, b) => a.match_count - b.match_count);
+        pool.sort((a, b) => {
+            const scoreA = a.match_count + (Math.random() * 0.49);
+            const scoreB = b.match_count + (Math.random() * 0.49);
+            return scoreA - scoreB;
+        });
 
-        // Ambil 4 orang prioritas utama hasil kocokan adil
         let selected = pool.slice(0, 4);
         let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
 
-        // Buat 3 kemungkinan kombinasi tim ganda dari 4 orang terpilih
         let combos = [
             { tA: [p1, p2], tB: [p3, p4] },
             { tA: [p1, p3], tB: [p2, p4] },
             { tA: [p1, p4], tB: [p2, p3] }
         ];
 
-        // Cari kombinasi pasangannya yang history-nya paling minim/belum pernah ketemu
         let bestCombo = combos[0];
         let minHistoryWeight = Infinity;
 
         combos.forEach(combo => {
             let weight = 0;
-            // Cek kedekatan history sebagai partner (usahakan cari kombinasi partner baru)
-            weight += getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 2;
-            weight += getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 2;
+            weight += getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 3;
+            weight += getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 3;
             
             if (weight < minHistoryWeight) {
                 minHistoryWeight = weight;
@@ -292,7 +277,6 @@ window.generate10Matches = function() {
             }
         });
 
-        // Update match count simulasi
         tempPlayers[bestCombo.tA[0].id].match_count++;
         tempPlayers[bestCombo.tA[1].id].match_count++;
         tempPlayers[bestCombo.tB[0].id].match_count++;
@@ -305,7 +289,7 @@ window.generate10Matches = function() {
             pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
             pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
             pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id,
-            status: 'pending', winner: '', scoreA: 0, scoreB: 0 // Nilai awal diset ke 0
+            status: 'pending', winner: '', scoreA: 0, scoreB: 0
         };
     }
     db.ref('badminton/current_schedule').set(matchesObj);
@@ -318,7 +302,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// REAL SCORE SUBMISSION SYSTEM
+// REAL SCORE SUBMISSION SYSTEM (WITH EDIT SCORE LOGIC)
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -331,30 +315,36 @@ window.submitSkorGame = function(matchId) {
         alert("Please fill in valid scores for both teams before saving!");
         return;
     }
-    if (valA === valB) {
-        alert("Deuce score requires a winner! Scores cannot be equal.");
-        return;
-    }
 
-    const timPemenang = valA > valB ? 'A' : 'B';
+    const timPemenang = valA >= valB ? 'A' : 'B';
     let updates = {};
     
+    // Jika pertandingan sebelumnya 'pending', ini submit pertama kali -> Tambah match_count pemain
+    if (match.status === 'pending') {
+        const playersInGame = [match.idA1, match.idA2, match.idB1, match.idB2];
+        playersInGame.forEach(id => {
+            if (globalPlayers[id]) updates[`badminton/players/${id}/match_count`] = globalPlayers[id].match_count + 1;
+        });
+
+        const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
+        const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
+        updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
+        updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
+    }
+
     updates[`badminton/current_schedule/${matchId}/status`] = 'done';
     updates[`badminton/current_schedule/${matchId}/winner`] = timPemenang;
     updates[`badminton/current_schedule/${matchId}/scoreA`] = valA;
     updates[`badminton/current_schedule/${matchId}/scoreB`] = valB;
 
-    const playersInGame = [match.idA1, match.idA2, match.idB1, match.idB2];
-    playersInGame.forEach(id => {
-        if (globalPlayers[id]) updates[`badminton/players/${id}/match_count`] = globalPlayers[id].match_count + 1;
-    });
-
-    const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
-    const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
-    updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
-    updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
-
     db.ref().update(updates);
+};
+
+// Fungsi Baru: Membuka kembali status match menjadi 'pending' agar bisa di-edit nilainya
+window.bukaEditSkorGame = function(matchId) {
+    db.ref(`badminton/current_schedule/${matchId}`).update({
+        status: 'pending'
+    });
 };
 
 function updateScheduleList() {
@@ -366,12 +356,11 @@ function updateScheduleList() {
 
     mList.forEach(m => {
         const isDone = m.status === 'done';
-        // Memberikan nilai default 0 jika data score kosong/belum diisi
         const displayScoreA = (m.scoreA !== undefined && m.scoreA !== "") ? m.scoreA : 0;
         const displayScoreB = (m.scoreB !== undefined && m.scoreB !== "") ? m.scoreB : 0;
 
         html += `
-            <div class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-40' : 'border-slate-800/80'} shadow-inner">
+            <div class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner transition duration-200">
                 <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
@@ -379,34 +368,39 @@ function updateScheduleList() {
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-2">
                     <!-- Team A -->
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
+                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pA1} & ${m.pA2}
                     </div>
                     
-                    <!-- Scoring System Box (Default Value 0) -->
+                    <!-- Scoring Input Area -->
                     <div class="flex items-center justify-center gap-1 w-[18%]">
                         ${isDone ? `
                             <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
                             <span class="text-slate-600 font-bold">:</span>
                             <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreB}</span>
                         ` : `
-                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
+                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                             <span class="text-slate-700 font-bold">:</span>
-                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
+                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                         `}
                     </div>
 
                     <!-- Team B -->
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
+                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pB1} & ${m.pB2}
                     </div>
                 </div>
 
+                <!-- Tombol Kondisional: Save Score ATAU Edit Score -->
                 ${!isDone ? `
                     <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] border border-slate-800/80 hover:border-transparent transition duration-200 uppercase tracking-widest">
-                        Save Score
+                        💾 Save Score
                     </button>
-                ` : ''}
+                ` : `
+                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-3 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 hover:text-slate-300 font-bold py-1 rounded-lg text-[9px] border border-slate-900/60 transition duration-200 uppercase tracking-widest">
+                        ✏️ Edit Score
+                    </button>
+                `}
             </div>
         `;
     });
@@ -424,12 +418,13 @@ window.simpanSesiHarian = function() {
 
     matches.forEach(m => {
         if (m.status !== 'done') return; 
-        if (m.winner === 'A') {
+        
+        if (m.scoreA > m.scoreB) {
             updates[`badminton/players/${m.idA1}/win`] = (globalPlayers[m.idA1]?.win || 0) + 1;
             updates[`badminton/players/${m.idA2}/win`] = (globalPlayers[m.idA2]?.win || 0) + 1;
             updates[`badminton/players/${m.idB1}/lose`] = (globalPlayers[m.idB1]?.lose || 0) + 1;
             updates[`badminton/players/${m.idB2}/lose`] = (globalPlayers[m.idB2]?.lose || 0) + 1;
-        } else if (m.winner === 'B') {
+        } else if (m.scoreB > m.scoreA) {
             updates[`badminton/players/${m.idB1}/win`] = (globalPlayers[m.idB1]?.win || 0) + 1;
             updates[`badminton/players/${m.idB2}/win`] = (globalPlayers[m.idB2]?.win || 0) + 1;
             updates[`badminton/players/${m.idA1}/lose`] = (globalPlayers[m.idA1]?.lose || 0) + 1;
