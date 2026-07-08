@@ -1,6 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
+// Konfigurasi Firebase Anda
 const firebaseConfig = {
   apiKey: "AIzaSyBupNaZK23M3ErtojxwYRdnKPrwjou1ERc",
   authDomain: "badminton-5cef1.firebaseapp.com",
@@ -11,9 +9,11 @@ const firebaseConfig = {
   appId: "1:857732838646:web:dd037447f2820cab1828d7"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app, "https://badminton-5cef1-default-rtdb.firebaseio.com");
+// Inisialisasi Firebase menggunakan objek global window
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
+// DOM Element Utama
 const appContainer = document.getElementById('app');
 let globalPlayers = {};
 let globalHistory = {};
@@ -61,14 +61,16 @@ function renderMainUI() {
     document.getElementById('btn-kocok').addEventListener('click', jalankanMatchmaking);
     document.getElementById('btn-reset-match-count').addEventListener('click', resetSemuaJumlahMain);
     
+    // Daftarkan fungsi toggle agar bisa dibaca atribut onclick HTML
     window.toggleStatusPemain = function(id, currentStatus) {
-        update(ref(db, `badminton/players/${id}`), {
+        db.ref(`badminton/players/${id}`).update({
             is_active: !currentStatus
         });
     };
 }
 
-onValue(ref(db, 'badminton/players'), (snapshot) => {
+// REALTIME LISTENERS (Sintaks V8 Legacy)
+db.ref('badminton/players').on('value', (snapshot) => {
     globalPlayers = snapshot.val() || {};
     if (!document.getElementById('list-pemain')) {
         renderMainUI();
@@ -76,7 +78,7 @@ onValue(ref(db, 'badminton/players'), (snapshot) => {
     updateListPemainUI();
 });
 
-onValue(ref(db, 'badminton/history'), (snapshot) => {
+db.ref('badminton/history').on('value', (snapshot) => {
     globalHistory = snapshot.val() || {};
 });
 
@@ -86,7 +88,7 @@ function aksiTambahPemain() {
     if (!name) return;
 
     const playerId = 'p_' + Date.now();
-    set(ref(db, `badminton/players/${playerId}`), {
+    db.ref(`badminton/players/${playerId}`).set({
         id: playerId,
         name: name,
         match_count: 0,
@@ -128,12 +130,11 @@ function resetSemuaJumlahMain() {
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
     });
-    update(ref(db), updates);
+    db.ref().update(updates);
 }
 
 function jalankanMatchmaking() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
-    
     if (activePlayers.length < 4) {
         alert("Pemain aktif minimal harus 4 orang untuk main Ganda!");
         return;
@@ -141,7 +142,6 @@ function jalankanMatchmaking() {
 
     activePlayers.sort((a, b) => a.match_count - b.match_count);
     const candidates = activePlayers.slice(0, 4);
-
     const p1 = candidates[0], p2 = candidates[1], p3 = candidates[2], p4 = candidates[3];
     
     const opsiCombos = [
@@ -179,7 +179,6 @@ function jalankanMatchmaking() {
     document.getElementById('btn-selesai-b').onclick = () => simpanHasilMatch(bestCombo.tB, bestCombo.tA);
 }
 
-// Mengambil skor riwayat bertemunya pemain dari objek database globalHistory
 function getHistoryScore(id1, id2, tipe) {
     const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
     if (globalHistory[key] && globalHistory[key][tipe]) {
@@ -203,13 +202,12 @@ function simpanHasilMatch(pemenang, kalah) {
 
     tambahHistoryCounter(pemenang[0].id, pemenang[1].id, 'partner');
     tambahHistoryCounter(kalah[0].id, kalah[1].id, 'partner');
-
     tambahHistoryCounter(pemenang[0].id, kalah[0].id, 'opponent');
     tambahHistoryCounter(pemenang[0].id, kalah[1].id, 'opponent');
     tambahHistoryCounter(pemenang[1].id, kalah[0].id, 'opponent');
     tambahHistoryCounter(pemenang[1].id, kalah[1].id, 'opponent');
 
-    update(ref(db), updates).then(() => {
+    db.ref().update(updates).then(() => {
         document.getElementById('hasil-match').classList.add('hidden');
         alert("Skor & Riwayat Berhasil Diperbarui!");
     }).catch(err => {
