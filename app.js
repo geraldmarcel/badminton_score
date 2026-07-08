@@ -106,7 +106,7 @@ function renderTabStructure() {
 
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
                 <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-3">📋 Current Fixture & Match Schedules</h2>
-                <div id="container-schedule-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-1"></div>
+                <div id="container-schedule-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-1 scroll-smooth"></div>
             </div>
         `;
     }
@@ -135,7 +135,9 @@ db.ref('badminton/history').on('value', (snapshot) => {
 
 db.ref('badminton/current_schedule').on('value', (snapshot) => {
     currentSchedule = snapshot.val() || {};
-    if (currentActiveTab === 'matchmaking') updateScheduleList();
+    if (currentActiveTab === 'matchmaking') {
+        updateScheduleList();
+    }
 });
 
 // ==========================================
@@ -176,33 +178,49 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: MATCHMAKING & AUTO-SUBSTITUTION
+// TAB: MATCHMAKING & AUTO-SUBSTITUTION (FIXED: NO DUPLICATE SIDES)
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus });
 
+    // Jika pemain di-uncheck (istirahat) dan ada jadwal berjalan
     if (nextStatus === false && Object.keys(currentSchedule).length > 0) {
         let scheduleUpdates = {};
-        let activePlayersList = Object.values(globalPlayers).filter(p => p.is_active && p.id !== id);
-
-        if (activePlayersList.length < 4) return; 
-
+        
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'pending') {
-                let affected = false;
-                
-                activePlayersList.sort(() => Math.random() - 0.5);
-                activePlayersList.sort((a,b) => a.match_count - b.match_count);
+                // Cek apakah pemain yang istirahat berada di pertandingan ini
+                if (m.idA1 === id || m.idA2 === id || m.idB1 === id || m.idB2 === id) {
+                    
+                    // Kumpulkan semua ID pemain yang saat ini ada di match ini (agar tidak dipilih jadi pengganti)
+                    let currentInMatchIds = [m.idA1, m.idA2, m.idB1, m.idB2];
+                    
+                    // Filter pemain aktif yang TIDAK sedang bermain di match ini, dan BUKAN pemain yang sedang istirahat
+                    let candidatePlayers = Object.values(globalPlayers).filter(p => 
+                        p.is_active && 
+                        p.id !== id && 
+                        !currentInMatchIds.includes(p.id)
+                    );
 
-                if (m.idA1 === id) { m.pA1 = activePlayersList[0].name; m.idA1 = activePlayersList[0].id; affected = true; }
-                else if (m.idA2 === id) { m.pA2 = activePlayersList[0].name; m.idA2 = activePlayersList[0].id; affected = true; }
-                else if (m.idB1 === id) { m.pB1 = activePlayersList[0].name; m.idB1 = activePlayersList[0].id; affected = true; }
-                else if (m.idB2 === id) { m.pB2 = activePlayersList[0].name; m.idB2 = activePlayersList[0].id; affected = true; }
+                    // Jika kandidat memadai, pilih yang match_count paling sedikit (prioritas main)
+                    if (candidatePlayers.length > 0) {
+                        candidatePlayers.sort(() => Math.random() - 0.5);
+                        candidatePlayers.sort((a, b) => a.match_count - b.match_count);
+                        
+                        let substitute = candidatePlayers[0];
 
-                if (affected) {
-                    scheduleUpdates[`badminton/current_schedule/${m.id}`] = m;
-                    activePlayersList[0].match_count++; 
+                        if (m.idA1 === id) { m.pA1 = substitute.name; m.idA1 = substitute.id; }
+                        else if (m.idA2 === id) { m.pA2 = substitute.name; m.idA2 = substitute.id; }
+                        else if (m.idB1 === id) { m.pB1 = substitute.name; m.idB1 = substitute.id; }
+                        else if (m.idB2 === id) { m.pB2 = substitute.name; m.idB2 = substitute.id; }
+
+                        scheduleUpdates[`badminton/current_schedule/${m.id}`] = m;
+                        // Tambahkan match count pengganti secara real-time
+                        db.ref(`badminton/players/${substitute.id}`).update({
+                            match_count: (substitute.match_count || 0) + 1
+                        });
+                    }
                 }
             }
         });
@@ -372,8 +390,9 @@ function updateScheduleList() {
         const displayScoreA = (m.scoreA !== undefined && m.scoreA !== "") ? m.scoreA : 0;
         const displayScoreB = (m.scoreB !== undefined && m.scoreB !== "") ? m.scoreB : 0;
 
+        // Tambahkan id unik untuk setiap element card match agar bisa di-target scroll
         html += `
-            <div class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner transition duration-200">
+            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner transition duration-200">
                 <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
@@ -414,6 +433,19 @@ function updateScheduleList() {
         `;
     });
     container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Random Matches' button to organize today's court rotations.</p>`;
+
+    // FITUR AUTO-SCROLL KE MATCH PENDING TERATAS
+    if (mList.length > 0) {
+        const firstPendingMatch = mList.find(m => m.status === 'pending');
+        if (firstPendingMatch) {
+            setTimeout(() => {
+                const targetCard = document.getElementById(`card-match-no-${firstPendingMatch.gameNo}`);
+                if (targetCard) {
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 100);
+        }
+    }
 }
 
 // ==========================================
