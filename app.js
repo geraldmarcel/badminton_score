@@ -20,10 +20,13 @@ let globalPlayers = {};
 let globalHistory = {};
 let currentSchedule = {};
 let currentActiveTab = 'matchmaking';
+let isLayoutRendered = false; // Flag untuk mencegah layout utama ditulis ulang terus-menerus
 
 // Global Tab Switcher Function
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
+    isLayoutRendered = false; // Reset flag agar layout tab baru digambar ulang
+    
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
         leaderboard: document.getElementById('btn-tab-leaderboard'),
@@ -38,13 +41,15 @@ window.switchTab = function(tabName) {
             tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
-    renderCurrentTabUI();
+    renderTabStructure();
 };
 
 // ==========================================
-// RENDER COMPONENT UI LAYER
+// RENDER LAYOUT STRUKTUR UTAMA (Hanya Sekali per Tab)
 // ==========================================
-function renderCurrentTabUI() {
+function renderTabStructure() {
+    if (isLayoutRendered) return; // Jika struktur sudah ada, stop. Jangan hancurkan DOM.
+
     if (currentActiveTab === 'database') {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl">
@@ -59,8 +64,6 @@ function renderCurrentTabUI() {
                 <div id="container-db-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
             </div>
         `;
-        updateDatabasePemainList();
-
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
@@ -81,8 +84,6 @@ function renderCurrentTabUI() {
                 </div>
             </div>
         `;
-        updateLeaderboardList();
-
     } else {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
@@ -108,9 +109,18 @@ function renderCurrentTabUI() {
                 <div id="container-schedule-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-1"></div>
             </div>
         `;
-        updateAbsenHariIniList();
-        updateScheduleList();
     }
+    isLayoutRendered = true;
+    refreshActiveListData(); // Isi data kontainer list setelah layout siap
+}
+
+// ==========================================
+// SINKRONISASI DATA KE ELEMEN KONTEN
+// ==========================================
+function refreshActiveListData() {
+    if (currentActiveTab === 'database') updateDatabasePemainList();
+    if (currentActiveTab === 'leaderboard') updateLeaderboardList();
+    if (currentActiveTab === 'matchmaking') { updateAbsenHariIniList(); updateScheduleList(); }
 }
 
 // ==========================================
@@ -118,24 +128,18 @@ function renderCurrentTabUI() {
 // ==========================================
 db.ref('badminton/players').on('value', (snapshot) => {
     globalPlayers = snapshot.val() || {};
-    if (appContent.querySelector('.animate-spin') || !document.getElementById('btn-tab-matchmaking')) {
-        renderCurrentTabUI();
-    } else {
-        refreshActiveListOnly();
-    }
+    renderTabStructure(); // Panggil fungsi pintar layout
+    refreshActiveListData();
 });
 
-db.ref('badminton/history').on('value', (snapshot) => { globalHistory = snapshot.val() || {}; });
+db.ref('badminton/history').on('value', (snapshot) => { 
+    globalHistory = snapshot.val() || {}; 
+});
+
 db.ref('badminton/current_schedule').on('value', (snapshot) => {
     currentSchedule = snapshot.val() || {};
     if (currentActiveTab === 'matchmaking') updateScheduleList();
 });
-
-function refreshActiveListOnly() {
-    if (currentActiveTab === 'database') updateDatabasePemainList();
-    if (currentActiveTab === 'leaderboard') updateLeaderboardList();
-    if (currentActiveTab === 'matchmaking') { updateAbsenHariIniList(); updateScheduleList(); }
-}
 
 // ==========================================
 // TAB: MEMBER DATABASE MANAGEMENT
@@ -348,7 +352,7 @@ function updateScheduleList() {
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-2">
                     <!-- Team A -->
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]':'bg-[#1E2638] border border-transparent text-slate-300'}">
+                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pA1} & ${m.pA2}
                     </div>
                     
@@ -366,7 +370,7 @@ function updateScheduleList() {
                     </div>
 
                     <!-- Team B -->
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]':'bg-[#1E2638] border border-transparent text-slate-300'}">
+                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pB1} & ${m.pB2}
                     </div>
                 </div>
