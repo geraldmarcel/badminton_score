@@ -302,7 +302,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// REAL SCORE SUBMISSION SYSTEM (WITH EDIT SCORE LOGIC)
+// REAL SCORE SUBMISSION SYSTEM (SAFE & INSTANT)
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -319,28 +319,41 @@ window.submitSkorGame = function(matchId) {
     const timPemenang = valA >= valB ? 'A' : 'B';
     let updates = {};
     
-    // Jika pertandingan sebelumnya 'pending', ini submit pertama kali -> Tambah match_count pemain
-    if (match.status === 'pending') {
-        const playersInGame = [match.idA1, match.idA2, match.idB1, match.idB2];
-        playersInGame.forEach(id => {
-            if (globalPlayers[id]) updates[`badminton/players/${id}/match_count`] = globalPlayers[id].match_count + 1;
-        });
-
-        const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
-        const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
-        updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
-        updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
-    }
-
     updates[`badminton/current_schedule/${matchId}/status`] = 'done';
     updates[`badminton/current_schedule/${matchId}/winner`] = timPemenang;
     updates[`badminton/current_schedule/${matchId}/scoreA`] = valA;
     updates[`badminton/current_schedule/${matchId}/scoreB`] = valB;
 
-    db.ref().update(updates);
+    if (match.status === 'pending') {
+        const playersInGame = [
+            { id: match.idA1 },
+            { id: match.idA2 },
+            { id: match.idB1 },
+            { id: match.idB2 }
+        ];
+        
+        playersInGame.forEach(p => {
+            if (p.id && globalPlayers[p.id]) {
+                const currentCount = globalPlayers[p.id].match_count || 0;
+                updates[`badminton/players/${p.id}/match_count`] = currentCount + 1;
+            }
+        });
+
+        if (match.idA1 && match.idA2) {
+            const keyA = match.idA1 < match.idA2 ? `${match.idA1}_${match.idA2}` : `${match.idA2}_${match.idA1}`;
+            updates[`badminton/history/${keyA}/partner`] = (globalHistory[keyA]?.partner || 0) + 1;
+        }
+        if (match.idB1 && match.idB2) {
+            const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
+            updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
+        }
+    }
+
+    db.ref().update(updates).catch(error => {
+        console.error("Firebase update failed:", error);
+    });
 };
 
-// Fungsi Baru: Membuka kembali status match menjadi 'pending' agar bisa di-edit nilainya
 window.bukaEditSkorGame = function(matchId) {
     db.ref(`badminton/current_schedule/${matchId}`).update({
         status: 'pending'
@@ -367,12 +380,10 @@ function updateScheduleList() {
                 </div>
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-2">
-                    <!-- Team A -->
                     <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pA1} & ${m.pA2}
                     </div>
                     
-                    <!-- Scoring Input Area -->
                     <div class="flex items-center justify-center gap-1 w-[18%]">
                         ${isDone ? `
                             <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
@@ -385,13 +396,11 @@ function updateScheduleList() {
                         `}
                     </div>
 
-                    <!-- Team B -->
                     <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pB1} & ${m.pB2}
                     </div>
                 </div>
 
-                <!-- Tombol Kondisional: Save Score ATAU Edit Score -->
                 ${!isDone ? `
                     <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] border border-slate-800/80 hover:border-transparent transition duration-200 uppercase tracking-widest">
                         💾 Save Score
