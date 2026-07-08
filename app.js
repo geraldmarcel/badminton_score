@@ -21,7 +21,7 @@ let globalHistory = {};
 let currentSchedule = {};
 let currentActiveTab = 'matchmaking';
 
-// Global Tab Switcher Function dengan Tema Oranye Baru
+// Global Tab Switcher Function
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
     const tabs = {
@@ -33,7 +33,7 @@ window.switchTab = function(tabName) {
     Object.keys(tabs).forEach(key => {
         if (!tabs[key]) return;
         if (key === tabName) {
-            tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg bg-[#ff5722] text-white transition duration-200 shadow-md shadow-[#ff5722]/10";
+            tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
         } else {
             tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
@@ -42,19 +42,19 @@ window.switchTab = function(tabName) {
 };
 
 // ==========================================
-// RENDER COMPONENT UI LAYER (Sena Theme Layout)
+// RENDER COMPONENT UI LAYER
 // ==========================================
 function renderCurrentTabUI() {
     if (currentActiveTab === 'database') {
         appContent.innerHTML = `
-            <div class="bg-[#121824] p-5 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl">
-                <h2 class="text-xs font-bold uppercase text-[#ff5722] tracking-widest">Register New Club Member</h2>
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl">
+                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Register New Club Member</h2>
                 <div class="flex gap-2">
-                    <input type="text" id="input-nama" placeholder="Enter player full name..." class="flex-1 bg-[#0b0f17] border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-[#ff5722] text-sm transition">
-                    <button onclick="aksiTambahPemain()" class="bg-[#ff5722] hover:bg-[#e04a1b] text-white font-bold px-5 py-2 rounded-xl text-sm transition">Register</button>
+                    <input type="text" id="input-nama" placeholder="Enter player full name..." class="flex-1 bg-[#0B0F17] border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-[#FF5722] text-sm transition">
+                    <button onclick="aksiTambahPemain()" class="bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold px-5 py-2 rounded-xl text-sm transition">Register</button>
                 </div>
             </div>
-            <div class="bg-[#121824] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
                 <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4">Registered Members (<span id="total-db">0</span>)</h2>
                 <div id="container-db-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
             </div>
@@ -63,17 +63,17 @@ function renderCurrentTabUI() {
 
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <div class="bg-[#121824] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
-                <h2 class="text-xs font-bold uppercase text-[#ff5722] tracking-widest mb-4">🏆 Club Performance Leaderboard</h2>
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
+                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest mb-4">🏆 Club Performance Leaderboard</h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm text-slate-300">
-                        <thead class="text-xs uppercase bg-[#0b0f17] text-slate-500 border-b border-slate-800/60">
+                        <thead class="text-xs uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
                             <tr>
                                 <th class="py-3 px-2 text-center">Rank</th>
                                 <th class="py-3 px-2">Name</th>
                                 <th class="py-3 px-2 text-center">Won</th>
                                 <th class="py-3 px-2 text-center">Lost</th>
-                                <th class="py-3 px-2 text-center text-[#ff5722]">Win Rate</th>
+                                <th class="py-3 px-2 text-center text-[#FF5722]">Win Rate</th>
                             </tr>
                         </thead>
                         <tbody id="container-leaderboard-body"></tbody>
@@ -85,25 +85,25 @@ function renderCurrentTabUI() {
 
     } else {
         appContent.innerHTML = `
-            <div class="bg-[#121824] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
                 <div class="flex justify-between items-start mb-1">
-                    <h2 class="text-xs font-bold uppercase text-[#ff5722] tracking-widest">Attendance Status (Courtside)</h2>
-                    <button id="btn-reset-match-count" class="text-[9px] bg-red-950/40 text-red-400 px-2 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition">Reset Matches Count</button>
+                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Courtside)</h2>
+                    <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-2 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition">Reset Matches Count</button>
                 </div>
                 <p class="text-[11px] text-slate-500 mb-4">Check "Active" for players currently at the venue. Uncheck immediately if someone rests or goes home early.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1"></div>
             </div>
 
             <div class="flex gap-2">
-                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#ff5722] to-[#ff7043] text-white font-black text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-[#ff5722]/10 transition active:scale-95 uppercase tracking-wider">
+                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider">
                     🎲 Generate 10 Matches
                 </button>
-                <button onclick="simpanSesiHarian()" class="bg-blue-600/90 text-white font-bold text-xs px-4 py-3.5 rounded-xl hover:bg-blue-500 transition uppercase tracking-wider shadow-lg">
-                    💾 Save Sesi Harian
+                <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-4 py-3.5 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg">
+                    💾 Save Daily Session
                 </button>
             </div>
 
-            <div class="bg-[#121824] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
                 <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-3">📋 Current Fixture & Match Schedules</h2>
                 <div id="container-schedule-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-1"></div>
             </div>
@@ -138,7 +138,7 @@ function refreshActiveListOnly() {
 }
 
 // ==========================================
-// TAB: ROSTER DATABASE MANAGEMENT
+// TAB: MEMBER DATABASE MANAGEMENT
 // ==========================================
 window.aksiTambahPemain = function() {
     const input = document.getElementById('input-nama');
@@ -152,7 +152,7 @@ window.aksiTambahPemain = function() {
 };
 
 window.hapusPemainClub = function(id) {
-    if (confirm("Permanently remove this player from the club roster database?")) {
+    if (confirm("Permanently remove this player from the club member database?")) {
         db.ref(`badminton/players/${id}`).remove();
     }
 };
@@ -164,7 +164,7 @@ function updateDatabasePemainList() {
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
     sorted.forEach(p => {
         html += `
-            <div class="flex items-center justify-between bg-[#0b0f17] p-3 rounded-xl border border-slate-900">
+            <div class="flex items-center justify-between bg-[#0B0F17] p-3 rounded-xl border border-slate-800/40">
                 <span class="text-sm font-semibold text-slate-200">${p.name}</span>
                 <button onclick="hapusPemainClub('${p.id}')" class="text-xs bg-red-950/30 text-red-400 px-3 py-1 rounded-lg font-bold border border-red-900/10 hover:bg-red-900 transition">Remove</button>
             </div>
@@ -175,13 +175,12 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: MATCHMAKING & AUTO-SUBSTITUTION (SAFE HISTORY)
+// TAB: MATCHMAKING & AUTO-SUBSTITUTION
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus });
 
-    // Jika diubah jadi istirahat/pulang, sistem mengamankan data 'done' & menyubstitusi data 'pending'
     if (nextStatus === false && Object.keys(currentSchedule).length > 0) {
         let scheduleUpdates = {};
         let activePlayersList = Object.values(globalPlayers).filter(p => p.is_active && p.id !== id);
@@ -189,7 +188,6 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
         if (activePlayersList.length < 4) return; 
 
         Object.values(currentSchedule).forEach(m => {
-            // Penggantian otomatis hanya terjadi pada laga berstatus pending
             if (m.status === 'pending') {
                 let affected = false;
                 activePlayersList.sort((a,b) => a.match_count - b.match_count);
@@ -219,16 +217,16 @@ function updateAbsenHariIniList() {
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
     sorted.forEach(p => {
         html += `
-            <label class="flex items-center justify-between bg-[#0b0f17] p-2.5 rounded-xl border ${p.is_active ? 'border-[#ff5722]/40 bg-[#ff5722]/5' : 'border-slate-900'} cursor-pointer select-none transition">
+            <label class="flex items-center justify-between bg-[#0B0F17] p-2.5 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition">
                 <div class="flex items-center gap-2 truncate">
-                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-4 h-4 accent-[#ff5722]">
-                    <span class="text-xs font-bold ${p.is_active ? 'text-[#ff5722]' : 'text-slate-500'} truncate">${p.name}</span>
+                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-4 h-4 accent-[#FF5722]">
+                    <span class="text-xs font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
                 </div>
                 <span class="text-[10px] text-slate-600 font-bold shrink-0 ml-1">(${p.match_count}x)</span>
             </label>
         `;
     });
-    container.innerHTML = html || `<p class="text-slate-600 text-xs col-span-2 text-center py-4">Please go to "Roster Database" to add club members.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs col-span-2 text-center py-4">Please go to "Member Database" to add club members.</p>`;
 }
 
 // ==========================================
@@ -307,7 +305,7 @@ window.submitSkorGame = function(matchId) {
         return;
     }
     if (valA === valB) {
-        alert("Deuce/Draw score requires a winner! Scores cannot be equal.");
+        alert("Deuce score requires a winner! Scores cannot be equal.");
         return;
     }
 
@@ -342,36 +340,39 @@ function updateScheduleList() {
     mList.forEach(m => {
         const isDone = m.status === 'done';
         html += `
-            <div class="bg-[#0b0f17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-40 bg-slate-950/10' : 'border-slate-800/80'} shadow-inner">
+            <div class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-40' : 'border-slate-800/80'} shadow-inner">
                 <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
-                    <span class="${isDone ? 'text-emerald-500':'text-[#ff5722]'} uppercase font-black">${m.status}</span>
+                    <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                 </div>
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-2">
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'A' ? 'bg-blue-950/30 border border-blue-500/30 text-blue-400':'bg-[#121824] border border-transparent'}">
+                    <!-- Team A -->
+                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]':'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pA1} & ${m.pA2}
                     </div>
                     
+                    <!-- Scoring System Box aligned with SENA scheme -->
                     <div class="flex items-center justify-center gap-1 w-[18%]">
                         ${isDone ? `
-                            <span class="text-sm font-black text-white bg-[#121824] px-2 py-0.5 rounded border border-slate-800">${m.scoreA}</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${m.scoreA}</span>
                             <span class="text-slate-600 font-bold">:</span>
-                            <span class="text-sm font-black text-white bg-[#121824] px-2 py-0.5 rounded border border-slate-800">${m.scoreB}</span>
+                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded border border-slate-800">${m.scoreB}</span>
                         ` : `
-                            <input type="number" id="input-score-A-${m.id}" placeholder="0" class="w-8 bg-[#121824] border border-slate-800 rounded text-center text-xs py-1 text-blue-400 font-extrabold focus:outline-none focus:border-[#ff5722] transition">
+                            <input type="number" id="input-score-A-${m.id}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                             <span class="text-slate-700 font-bold">:</span>
-                            <input type="number" id="input-score-B-${m.id}" placeholder="0" class="w-8 bg-[#121824] border border-slate-800 rounded text-center text-xs py-1 text-orange-400 font-extrabold focus:outline-none focus:border-[#ff5722] transition">
+                            <input type="number" id="input-score-B-${m.id}" placeholder="0" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none focus:border-[#FF5722] transition">
                         `}
                     </div>
 
-                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'B' ? 'bg-orange-950/30 border border-orange-500/30 text-orange-400':'bg-[#121824] border border-transparent'}">
+                    <!-- Team B -->
+                    <div class="w-[41%] p-2 rounded-lg truncate ${m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]':'bg-[#1E2638] border border-transparent text-slate-300'}">
                         ${m.pB1} & ${m.pB2}
                     </div>
                 </div>
 
                 ${!isDone ? `
-                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#121824] hover:bg-[#ff5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] border border-slate-800/80 hover:border-transparent transition duration-200 uppercase tracking-widest">
+                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] border border-slate-800/80 hover:border-transparent transition duration-200 uppercase tracking-widest">
                         Save Score
                     </button>
                 ` : ''}
@@ -432,12 +433,12 @@ function updateLeaderboardList() {
 
     playersList.forEach((p, idx) => {
         html += `
-            <tr class="bg-[#121824]/40 border-b border-slate-900/60 font-semibold text-xs">
+            <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
                 <td class="py-3 px-2 text-center text-slate-500">${idx + 1}</td>
                 <td class="py-3 px-2 text-white">${p.name}</td>
-                <td class="py-3 px-2 text-center text-blue-400">${p.win || 0}</td>
-                <td class="py-3 px-2 text-center text-orange-400">${p.lose || 0}</td>
-                <td class="py-3 px-2 text-center text-[#ff5722] font-extrabold">${p.rate}%</td>
+                <td class="py-3 px-2 text-center text-[#FF5722]">${p.win || 0}</td>
+                <td class="py-3 px-2 text-center text-slate-400">${p.lose || 0}</td>
+                <td class="py-3 px-2 text-center text-[#FF5722] font-extrabold">${p.rate}%</td>
             </tr>
         `;
     });
