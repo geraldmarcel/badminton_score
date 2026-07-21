@@ -26,14 +26,14 @@ let currentActiveTab = 'matchmaking';
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
-// Map Nama Bulan ke Angka untuk Parse Data Lama ("21 Jul 26")
+// Map Nama Bulan ke Angka untuk Parse Data Format Teks Lama ("21 Jul 26")
 const MONTH_MAP = {
     jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05',
     jun: '06', jul: '07', agu: '08', aug: '08', sep: '09', okt: '10', oct: '10',
     nov: '11', des: '12', dec: '12'
 };
 
-// Helper: Konversi Tanggal Beda-Beda Format ke YYYY-MM
+// Helper: Konversi Tanggal Beda Format ke String YYYY-MM
 function extractIsoPeriod(log) {
     if (log.isoDate) return log.isoDate.substring(0, 7);
     
@@ -122,7 +122,6 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <!-- FILTER PERIODE MONTH PICKER -->
             <div class="bg-[#1E2638] p-3.5 rounded-2xl border border-slate-800/50 shadow-xl space-y-2.5 w-full">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -138,7 +137,6 @@ function renderTabStructure() {
                 </div>
             </div>
 
-            <!-- LEADERBOARD TABLE -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
                 <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
                 <div class="overflow-x-auto w-full">
@@ -157,7 +155,6 @@ function renderTabStructure() {
                 </div>
             </div>
 
-            <!-- ALL MATCHES HISTORY LOG -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                 <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
                     <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
@@ -166,7 +163,6 @@ function renderTabStructure() {
                 <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
 
-            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
                 <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-2.5">
@@ -581,7 +577,7 @@ function updateLeaderboardList() {
 
     const allLogs = Object.values(matchHistoryLogs);
     
-    // Filter riwayat pertandingan dengan ekstraksi tanggal fleksibel
+    // Filter riwayat pertandingan berdasarkan periode YYYY-MM
     const filteredLogs = allLogs.filter(log => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -589,11 +585,15 @@ function updateLeaderboardList() {
     });
 
     let playerStatsMap = {};
-    
-    Object.values(globalPlayers).forEach(p => {
-        playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
-    });
 
+    // Jika ALL TIME, daftar awal pemain diambil dari seluruh member
+    if (selectedPeriod === 'ALL') {
+        Object.values(globalPlayers).forEach(p => {
+            playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
+        });
+    }
+
+    // Rekap W/L berdasarkan pertandingan yang lolos filter
     filteredLogs.forEach(log => {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
@@ -623,30 +623,36 @@ function updateLeaderboardList() {
         return { ...p, total, rate };
     });
 
+    // Sort: Win Rate -> Jumlah Win -> Nama
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
+    // Render Tabel Leaderboard
     let lbHtml = '';
-    playersList.forEach((p, idx) => {
-        lbHtml += `
-            <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
-                <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
-                <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
-                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
-                        ${p.name}
-                    </span>
-                </td>
-                <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
-                <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
-                <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
-            </tr>
-        `;
-    });
+    if (playersList.length > 0) {
+        playersList.forEach((p, idx) => {
+            lbHtml += `
+                <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
+                    <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
+                    <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
+                        <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
+                            ${p.name}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
+                    <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
+                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
+                </tr>
+            `;
+        });
+    }
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical data available for selected period.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">Tidak ada data pertandingan untuk bulan/tahun ini.</td></tr>`;
 
+    // Render Total Match Count
     const countElem = document.getElementById('total-matches-count');
     if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
     
+    // Render Matches History Log
     let matchesHtml = '';
     filteredLogs.slice().reverse().forEach(log => {
         const valA = parseInt(log.scoreA || 0);
@@ -669,7 +675,7 @@ function updateLeaderboardList() {
         `;
     });
 
-    matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-600 text-xs text-center py-6">No matches recorded for this period.</p>`;
+    matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-500 text-xs text-center py-6 italic">Tidak ada riwayat pertandingan.</p>`;
 }
 
 // ==========================================
@@ -718,7 +724,7 @@ window.openHistoryModal = function(playerId, playerName) {
         `;
     });
 
-    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No historical matches registered for this member in selected period.</div>`;
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">Tidak ada riwayat pertandingan untuk pemain ini pada periode yang dipilih.</div>`;
     modal.classList.remove('hidden');
 };
 
