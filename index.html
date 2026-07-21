@@ -1,9 +1,9 @@
-<!<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Badminton Matchmaker & Leaderboard</title>
+    <title>SENA Badminton Club - Matchmaker & Leaderboard</title>
 
     <!-- META TAG ANTI-CACHE -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -22,7 +22,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-    <!-- CUSTOM THEME OVERRIDES FOR LIGHT MODE -->
+    <!-- CUSTOM THEME OVERRIDES FOR LIGHT MODE & MONTH PICKER -->
     <style>
         html:not(.dark) body {
             background-color: #F1F5F9;
@@ -75,22 +75,28 @@
     <!-- HEADER / NAVIGATION BAR -->
     <header class="bg-[#1E2638] border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
+            <!-- BRANDING LOGO & TULISAN SENA -->
             <div class="flex items-center gap-2 shrink-0">
                 <span class="text-xl">🏸</span>
-                <h1 class="font-black text-xs sm:text-sm tracking-wide text-white uppercase">Badminton <span class="text-[#FF5722]">Club</span></h1>
+                <div class="flex flex-col">
+                    <h1 class="font-black text-xs sm:text-sm tracking-widest text-[#FF5722] uppercase leading-none">
+                        SENA <span class="text-white">CLUB</span>
+                    </h1>
+                    <span class="text-[9px] text-slate-400 font-bold tracking-tighter">BADMINTON SYSTEM</span>
+                </div>
             </div>
             
             <!-- RIGHT ACTIONS: TAB SWITCHER & THEME TOGGLE -->
             <div class="flex items-center gap-2">
                 <!-- TAB SWITCHER -->
-                <div class="flex bg-[#0B0F17] p-1 rounded-xl border border-slate-800 w-48 sm:w-56">
-                    <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10">
+                <div class="flex bg-[#0B0F17] p-1 rounded-xl border border-slate-800 w-44 sm:w-52">
+                    <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-1.5 text-[10px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10">
                         Matches
                     </button>
-                    <button id="btn-tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
+                    <button id="btn-tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 text-center py-1.5 text-[10px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
                         Rank
                     </button>
-                    <button id="btn-tab-database" onclick="switchTab('database')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
+                    <button id="btn-tab-database" onclick="switchTab('database')" class="flex-1 text-center py-1.5 text-[10px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
                         Members
                     </button>
                 </div>
@@ -109,103 +115,6 @@
     </main>
 
     <!-- SCRIPT APPLICATION -->
-    <script src="app.js?v=1.0.6"></script>
-</body>
-</html>
-DOCTYPE html>
-<html lang="id" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Badminton Matchmaker & Leaderboard</title>
-
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
-    </script>
-
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <style>
-        html:not(.dark) body {
-            background-color: #F1F5F9;
-            color: #1E293B;
-        }
-        html:not(.dark) header {
-            background-color: #FFFFFF;
-            border-color: #E2E8F0;
-        }
-        html:not(.dark) .bg-\[\#1E2638\] {
-            background-color: #FFFFFF !important;
-            border-color: #E2E8F0 !important;
-        }
-        html:not(.dark) .bg-\[\#0B0F17\] {
-            background-color: #F8FAFC !important;
-            border-color: #E2E8F0 !important;
-        }
-        html:not(.dark) .text-white {
-            color: #0F172A !important;
-        }
-        html:not(.dark) .text-slate-200, 
-        html:not(.dark) .text-slate-300 {
-            color: #334155 !important;
-        }
-        html:not(.dark) .text-slate-400, 
-        html:not(.dark) .text-slate-500 {
-            color: #64748B !important;
-        }
-        html:not(.dark) .border-slate-800,
-        html:not(.dark) .border-slate-800\/80,
-        html:not(.dark) .border-slate-800\/50,
-        html:not(.dark) .border-slate-800\/40,
-        html:not(.dark) .border-slate-900\/60 {
-            border-color: #E2E8F0 !important;
-        }
-        html:not(.dark) input, 
-        html:not(.dark) select {
-            color: #0F172A !important;
-        }
-    </style>
-</head>
-<body class="bg-[#0B0F17] text-slate-200 min-h-screen font-sans antialiased pb-10 transition-colors duration-200">
-
-    <header class="bg-[#1E2638] border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
-        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 shrink-0">
-                <span class="text-xl">🏸</span>
-                <h1 class="font-black text-xs sm:text-sm tracking-wide text-white uppercase">Badminton <span class="text-[#FF5722]">Club</span></h1>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <div class="flex bg-[#0B0F17] p-1 rounded-xl border border-slate-800 w-48 sm:w-56">
-                    <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10">
-                        Matches
-                    </button>
-                    <button id="btn-tab-leaderboard" onclick="switchTab('leaderboard')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
-                        Rank
-                    </button>
-                    <button id="btn-tab-database" onclick="switchTab('database')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200">
-                        Members
-                    </button>
-                </div>
-
-                <button onclick="toggleTheme()" id="btn-theme-toggle" title="Toggle Light/Dark Mode" class="bg-[#0B0F17] hover:bg-slate-800 p-2 rounded-xl border border-slate-800 text-sm flex items-center justify-center transition shrink-0">
-                    🌙
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <main id="app-content" class="max-w-md mx-auto px-4 pt-4 space-y-4">
-        </main>
-
-    <script src="app.js?v=1.0.5"></script>
+    <script src="app.js?v=1.0.7"></script>
 </body>
 </html>
