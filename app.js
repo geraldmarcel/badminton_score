@@ -22,7 +22,6 @@ let globalHistory = {};
 let currentSchedule = {};
 let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
-let isLayoutRendered = false;
 
 // Dynamic Filter State
 let selectedPeriod = 'ALL';
@@ -60,7 +59,6 @@ initTheme();
 // ==========================================
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
-    isLayoutRendered = false; 
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
@@ -185,7 +183,7 @@ function renderTabStructure() {
         `;
     }
     
-    // Panggil pembaruan data secara langsung setelah HTML selesai dirender
+    // Refresh data secara konsisten setiap kali tab dirender
     refreshActiveListData();
 }
 
@@ -200,7 +198,7 @@ function refreshActiveListData() {
 // ==========================================
 db.ref('badminton/players').on('value', (snapshot) => {
     globalPlayers = snapshot.val() || {};
-    renderTabStructure();
+    refreshActiveListData();
 });
 
 db.ref('badminton/history').on('value', (snapshot) => { 
@@ -219,11 +217,15 @@ db.ref('badminton/match_history').on('value', (snapshot) => {
     }
 });
 
+// INITIAL RENDER AT LAUNCH
+renderTabStructure();
+
 // ==========================================
 // TAB: MEMBER DATABASE MANAGEMENT
 // ==========================================
 window.aksiTambahPemain = function() {
     const input = document.getElementById('input-nama');
+    if (!input) return;
     const name = input.value.trim();
     if (!name) return;
     const id = 'p_' + Date.now();
@@ -549,13 +551,12 @@ function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
     const matchesContainer = document.getElementById('container-all-matches-list');
     
-    // Safety check untuk memastikan elemen DOM tersedia
     if (!tbody || !matchesContainer) return;
 
     const allLogs = Object.values(matchHistoryLogs);
     
     const filteredLogs = allLogs.filter(log => {
-        if (!log.isoDate) return true; // fallback untuk log lama tanpa isoDate
+        if (!log.isoDate) return true;
         if (selectedPeriod === 'ALL') return true;
         
         const logPeriod = log.isoDate.substring(0, 7);
@@ -563,6 +564,8 @@ function updateLeaderboardList() {
     });
 
     let playerStatsMap = {};
+    
+    // Inisialisasi daftar pemain dari globalPlayers
     Object.values(globalPlayers).forEach(p => {
         playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
     });
@@ -571,6 +574,12 @@ function updateLeaderboardList() {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
+        // Pendaftaran nama/ID pemain otomatis jika belum tercatat di globalPlayers
+        if (log.idA1 && !playerStatsMap[log.idA1]) playerStatsMap[log.idA1] = { id: log.idA1, name: log.pA1 || 'Player', win: 0, lose: 0 };
+        if (log.idA2 && !playerStatsMap[log.idA2]) playerStatsMap[log.idA2] = { id: log.idA2, name: log.pA2 || 'Player', win: 0, lose: 0 };
+        if (log.idB1 && !playerStatsMap[log.idB1]) playerStatsMap[log.idB1] = { id: log.idB1, name: log.pB1 || 'Player', win: 0, lose: 0 };
+        if (log.idB2 && !playerStatsMap[log.idB2]) playerStatsMap[log.idB2] = { id: log.idB2, name: log.pB2 || 'Player', win: 0, lose: 0 };
 
         if (isTeamAWin) {
             if (log.idA1 && playerStatsMap[log.idA1]) playerStatsMap[log.idA1].win += 1;
