@@ -23,6 +23,10 @@ let currentSchedule = {};
 let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
 
+// Admin View State
+let isAdminView = false;
+let editingMatchLogId = null;
+
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
@@ -37,7 +41,6 @@ const MONTH_MAP = {
 function extractIsoPeriod(log) {
     if (log.isoDate) return log.isoDate.substring(0, 7);
     
-    // Parse format teks lama: "21 Jul 26" atau "21 Jul 2026"
     if (log.date && typeof log.date === 'string') {
         const parts = log.date.trim().split(' ');
         if (parts.length >= 3) {
@@ -84,6 +87,7 @@ initTheme();
 // ==========================================
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
+    if (tabName !== 'leaderboard') isAdminView = false; // Reset admin mode jika pindah tab
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
@@ -99,6 +103,12 @@ window.switchTab = function(tabName) {
             tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
+    renderTabStructure();
+};
+
+window.toggleAdminMode = function() {
+    isAdminView = !isAdminView;
+    editingMatchLogId = null;
     renderTabStructure();
 };
 
@@ -131,40 +141,109 @@ function renderTabStructure() {
                     </div>
                     <button onclick="resetFilterPeriode()" class="text-[10px] bg-[#0B0F17] text-[#FF5722] px-2.5 py-1 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition shrink-0">Show All Time</button>
                 </div>
-                
                 <div class="w-full">
                     <input type="month" id="filter-month-picker" oninput="onMonthPickerChange(this.value)" onchange="onMonthPickerChange(this.value)" 
                            class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-[#FF5722] transition">
                 </div>
             </div>
 
-            <!-- LEADERBOARD TABLE -->
-            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
-                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
-                <div class="overflow-x-auto w-full">
-                    <table class="w-full text-left text-xs text-slate-300 min-w-[280px]">
-                        <thead class="text-[10px] uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
-                            <tr>
-                                <th class="py-2 px-1 text-center w-6">#</th>
-                                <th class="py-2 px-1.5">Name</th>
-                                <th class="py-2 px-1 text-center w-8">W</th>
-                                <th class="py-2 px-1 text-center w-8">L</th>
-                                <th class="py-2 px-1 text-center w-12 text-[#FF5722]">Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody id="container-leaderboard-body"></tbody>
-                    </table>
+            ${!isAdminView ? `
+                <!-- LEADERBOARD PUBLIC VIEW -->
+                <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
+                    <div class="flex justify-between items-center cursor-pointer" onclick="toggleAdminMode()" title="Click to open Admin Panel">
+                        <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest hover:underline flex items-center gap-1.5">
+                            <span>🏆 Performance Leaderboard</span>
+                        </h2>
+                        <span class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 hover:text-white font-bold transition">⚙️ Admin Mode</span>
+                    </div>
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-left text-xs text-slate-300 min-w-[280px]">
+                            <thead class="text-[10px] uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
+                                <tr>
+                                    <th class="py-2 px-1 text-center w-6">#</th>
+                                    <th class="py-2 px-1.5">Name</th>
+                                    <th class="py-2 px-1 text-center w-8">W</th>
+                                    <th class="py-2 px-1 text-center w-8">L</th>
+                                    <th class="py-2 px-1 text-center w-12 text-[#FF5722]">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="container-leaderboard-body"></tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <!-- ALL MATCHES HISTORY LOG -->
-            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
-                <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
-                    <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
-                    <span id="total-matches-count" class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
+                <!-- ALL MATCHES HISTORY LOG (PUBLIC) -->
+                <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
+                    <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
+                        <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
+                        <span id="total-matches-count" class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
+                    </div>
+                    <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
                 </div>
-                <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
-            </div>
+            ` : `
+                <!-- ADMIN PANEL VIEW -->
+                <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 shadow-2xl space-y-3 w-full">
+                    <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-xs">🛠️</span>
+                            <h2 class="text-xs font-extrabold uppercase text-amber-400 tracking-wider">Admin Panel - Matches Data</h2>
+                        </div>
+                        <button onclick="toggleAdminMode()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-lg border border-slate-700 transition">
+                            ✖ Exit Admin
+                        </button>
+                    </div>
+
+                    <!-- FORM INSERT / EDIT MATCH -->
+                    <div id="container-admin-form" class="bg-[#0B0F17] p-3 rounded-xl border border-slate-800 space-y-2.5">
+                        <h3 id="form-admin-title" class="text-[11px] font-bold text-[#FF5722] uppercase tracking-wider">➕ Add New Match Entry</h3>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team A (Player 1 & 2)</label>
+                                <select id="admin-select-pA1" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs text-white mb-1.5 focus:outline-none focus:border-[#FF5722]"></select>
+                                <select id="admin-select-pA2" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team B (Player 1 & 2)</label>
+                                <select id="admin-select-pB1" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs text-white mb-1.5 focus:outline-none focus:border-[#FF5722]"></select>
+                                <select id="admin-select-pB2" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center pt-1">
+                            <div>
+                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Score A</label>
+                                <input type="number" id="admin-score-A" value="0" min="0" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs font-bold text-center text-[#FF5722]">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Score B</label>
+                                <input type="number" id="admin-score-B" value="0" min="0" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-xs font-bold text-center text-[#FF5722]">
+                            </div>
+                            <div>
+                                <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Match Date</label>
+                                <input type="date" id="admin-match-date" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-[10px] text-white">
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 pt-2">
+                            <button onclick="simpanAdminMatch()" id="btn-admin-submit" class="flex-1 bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider">
+                                💾 Save Match Data
+                            </button>
+                            <button id="btn-admin-cancel-edit" onclick="batalEditAdmin()" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-2 rounded-xl text-xs transition">
+                                Batal
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ADMIN MATCHES LIST FOR EDIT & DELETE -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Existing Matches (<span id="total-matches-admin-count">0</span>)</h3>
+                        </div>
+                        <div id="container-admin-matches-list" class="space-y-2 max-h-[400px] overflow-y-auto pr-0.5 scroll-smooth"></div>
+                    </div>
+                </div>
+            `}
 
             <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
@@ -203,8 +282,6 @@ function renderTabStructure() {
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                 <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
                 <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
-                
-                <!-- TOMBOL CANCEL / RESET SESSION DI PALING BAWAH SCHEDULE -->
                 <div id="container-reset-session" class="pt-2"></div>
             </div>
         `;
@@ -217,7 +294,12 @@ function refreshActiveListData() {
     if (currentActiveTab === 'database') updateDatabasePemainList();
     if (currentActiveTab === 'leaderboard') {
         syncMonthPickerUI();
-        updateLeaderboardList();
+        if (isAdminView) {
+            populateAdminPlayerDropdowns();
+            renderAdminMatchesList();
+        } else {
+            updateLeaderboardList();
+        }
     }
     if (currentActiveTab === 'matchmaking') { 
         updateAbsenHariIniList(); 
@@ -245,7 +327,8 @@ db.ref('badminton/current_schedule').on('value', (snapshot) => {
 db.ref('badminton/match_history').on('value', (snapshot) => {
     matchHistoryLogs = snapshot.val() || {};
     if (currentActiveTab === 'leaderboard') {
-        updateLeaderboardList();
+        if (isAdminView) renderAdminMatchesList();
+        else updateLeaderboardList();
     }
 });
 
@@ -465,10 +548,8 @@ window.batalSesiMatch = function() {
     if (!confirm("Are you sure you want to cancel and clear the current generated matches?")) return;
 
     let updates = {};
-    // Kosongkan jadwal yang berjalan
     updates['badminton/current_schedule'] = null;
 
-    // Reset match_count seluruh pemain kembali ke 0
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
     });
@@ -525,7 +606,6 @@ function updateScheduleList() {
 
     container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button.</p>`;
 
-    // Tampilkan tombol cancel/reset session HANYA jika ada match yang ter-generate
     if (resetContainer) {
         if (mList.length > 0) {
             resetContainer.innerHTML = `
@@ -551,7 +631,7 @@ window.simpanSesiHarian = function() {
     
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const isoDateStr = `${year}-${month}`; // Format YYYY-MM
+    const isoDateStr = `${year}-${month}`;
     const displayDateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
 
     matches.forEach(m => {
@@ -597,13 +677,178 @@ function syncMonthPickerUI() {
 
 window.onMonthPickerChange = function(val) {
     selectedPeriod = val && val.trim() !== '' ? val : 'ALL';
-    updateLeaderboardList();
+    if (isAdminView) renderAdminMatchesList();
+    else updateLeaderboardList();
 };
 
 window.resetFilterPeriode = function() {
     selectedPeriod = 'ALL';
     syncMonthPickerUI();
-    updateLeaderboardList();
+    if (isAdminView) renderAdminMatchesList();
+    else updateLeaderboardList();
+};
+
+// ==========================================
+// ADMIN PANEL CRUD LOGIC (INSERT, EDIT, DELETE)
+// ==========================================
+function populateAdminPlayerDropdowns() {
+    const ids = ['admin-select-pA1', 'admin-select-pA2', 'admin-select-pB1', 'admin-select-pB2'];
+    const playersArr = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
+    
+    ids.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let opts = `<option value="">-- Select Player --</option>`;
+        playersArr.forEach(p => {
+            opts += `<option value="${p.id}">${p.name}</option>`;
+        });
+        sel.innerHTML = opts;
+    });
+
+    // Default Tanggal Hari Ini untuk Form Insert
+    const dateInput = document.getElementById('admin-match-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function renderAdminMatchesList() {
+    const container = document.getElementById('container-admin-matches-list');
+    const countElem = document.getElementById('total-matches-admin-count');
+    if (!container) return;
+
+    const allLogs = Object.entries(matchHistoryLogs);
+    
+    // Filter berdasarkan Periode YYYY-MM yang dipilih
+    const filteredEntries = allLogs.filter(([id, log]) => {
+        if (selectedPeriod === 'ALL') return true;
+        const logPeriod = extractIsoPeriod(log);
+        return logPeriod === selectedPeriod;
+    });
+
+    if (countElem) countElem.innerText = filteredEntries.length;
+
+    let html = '';
+    filteredEntries.slice().reverse().forEach(([logId, log]) => {
+        const valA = parseInt(log.scoreA || 0);
+        const valB = parseInt(log.scoreB || 0);
+        const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
+        html += `
+            <div class="bg-[#0B0F17] p-2.5 rounded-xl border border-slate-800 flex items-center justify-between gap-1.5 text-xs">
+                <div class="w-[34%] truncate ${isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+                    ${log.pA1 || 'P1'} & ${log.pA2 || 'P2'}
+                </div>
+                <div class="w-[20%] text-center shrink-0">
+                    <span class="bg-[#1E2638] px-1.5 py-0.5 rounded text-white font-black text-[11px] border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
+                    <div class="text-[8px] text-slate-600 mt-0.5">${log.date || ''}</div>
+                </div>
+                <div class="w-[34%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722]' : 'text-slate-400'}">
+                    ${log.pB1 || 'P1'} & ${log.pB2 || 'P2'}
+                </div>
+                <div class="flex items-center gap-1 shrink-0 ml-1">
+                    <button onclick="mulaiEditAdmin('${logId}')" class="bg-amber-950/40 hover:bg-amber-900 text-amber-400 p-1.5 rounded-lg text-[10px] font-bold border border-amber-900/30 transition" title="Edit">✏️</button>
+                    <button onclick="hapusAdminMatch('${logId}')" class="bg-red-950/40 hover:bg-red-900 text-red-400 p-1.5 rounded-lg text-[10px] font-bold border border-red-900/30 transition" title="Delete">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html || `<p class="text-slate-500 text-xs text-center py-6 italic">No matches found for this period.</p>`;
+}
+
+window.simpanAdminMatch = function() {
+    const pA1 = document.getElementById('admin-select-pA1').value;
+    const pA2 = document.getElementById('admin-select-pA2').value;
+    const pB1 = document.getElementById('admin-select-pB1').value;
+    const pB2 = document.getElementById('admin-select-pB2').value;
+    const scoreA = parseInt(document.getElementById('admin-score-A').value) || 0;
+    const scoreB = parseInt(document.getElementById('admin-score-B').value) || 0;
+    const matchDateVal = document.getElementById('admin-match-date').value;
+
+    if (!pA1 || !pA2 || !pB1 || !pB2) {
+        alert("Please select all 4 players!");
+        return;
+    }
+
+    if (new Set([pA1, pA2, pB1, pB2]).size !== 4) {
+        alert("Players in a match must all be different!");
+        return;
+    }
+
+    const dateObj = matchDateVal ? new Date(matchDateVal) : new Date();
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const isoDateStr = `${year}-${month}`;
+    const displayDateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
+
+    const logData = {
+        date: displayDateStr,
+        isoDate: isoDateStr,
+        idA1: pA1, pA1: globalPlayers[pA1]?.name || 'Player',
+        idA2: pA2, pA2: globalPlayers[pA2]?.name || 'Player',
+        idB1: pB1, pB1: globalPlayers[pB1]?.name || 'Player',
+        idB2: pB2, pB2: globalPlayers[pB2]?.name || 'Player',
+        scoreA: scoreA,
+        scoreB: scoreB,
+        winner: scoreA >= scoreB ? 'A' : 'B'
+    };
+
+    const targetId = editingMatchLogId ? editingMatchLogId : ('log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4));
+
+    db.ref(`badminton/match_history/${targetId}`).set(logData).then(() => {
+        alert(editingMatchLogId ? "Match entry updated successfully!" : "New match entry inserted successfully!");
+        batalEditAdmin();
+    });
+};
+
+window.mulaiEditAdmin = function(logId) {
+    const log = matchHistoryLogs[logId];
+    if (!log) return;
+
+    editingMatchLogId = logId;
+    
+    document.getElementById('form-admin-title').innerText = "✏️ Edit Match Entry";
+    document.getElementById('btn-admin-submit').innerText = "💾 Update Match Data";
+    document.getElementById('btn-admin-cancel-edit').classList.remove('hidden');
+
+    document.getElementById('admin-select-pA1').value = log.idA1 || '';
+    document.getElementById('admin-select-pA2').value = log.idA2 || '';
+    document.getElementById('admin-select-pB1').value = log.idB1 || '';
+    document.getElementById('admin-select-pB2').value = log.idB2 || '';
+    document.getElementById('admin-score-A').value = log.scoreA || 0;
+    document.getElementById('admin-score-B').value = log.scoreB || 0;
+
+    if (log.isoDate) {
+        document.getElementById('admin-match-date').value = `${log.isoDate}-01`;
+    }
+
+    document.getElementById('container-admin-form').scrollIntoView({ behavior: 'smooth' });
+};
+
+window.batalEditAdmin = function() {
+    editingMatchLogId = null;
+    const title = document.getElementById('form-admin-title');
+    const submitBtn = document.getElementById('btn-admin-submit');
+    const cancelBtn = document.getElementById('btn-admin-cancel-edit');
+
+    if (title) title.innerText = "➕ Add New Match Entry";
+    if (submitBtn) submitBtn.innerText = "💾 Save Match Data";
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+
+    ['admin-select-pA1', 'admin-select-pA2', 'admin-select-pB1', 'admin-select-pB2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    
+    if (document.getElementById('admin-score-A')) document.getElementById('admin-score-A').value = 0;
+    if (document.getElementById('admin-score-B')) document.getElementById('admin-score-B').value = 0;
+};
+
+window.hapusAdminMatch = function(logId) {
+    if (confirm("Permanently delete this match entry from history?")) {
+        db.ref(`badminton/match_history/${logId}`).remove();
+    }
 };
 
 // ==========================================
@@ -617,7 +862,6 @@ function updateLeaderboardList() {
 
     const allLogs = Object.values(matchHistoryLogs);
     
-    // Filter riwayat pertandingan berdasarkan periode YYYY-MM
     const filteredLogs = allLogs.filter(log => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -626,14 +870,12 @@ function updateLeaderboardList() {
 
     let playerStatsMap = {};
 
-    // Jika ALL TIME, daftar awal pemain diambil dari seluruh member
     if (selectedPeriod === 'ALL') {
         Object.values(globalPlayers).forEach(p => {
             playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
         });
     }
 
-    // Rekap W/L berdasarkan pertandingan yang lolos filter
     filteredLogs.forEach(log => {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
@@ -663,10 +905,8 @@ function updateLeaderboardList() {
         return { ...p, total, rate };
     });
 
-    // Sort: Win Rate -> Jumlah Win -> Nama
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
-    // Render Tabel Leaderboard
     let lbHtml = '';
     if (playersList.length > 0) {
         playersList.forEach((p, idx) => {
@@ -688,11 +928,9 @@ function updateLeaderboardList() {
 
     tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available for this month/year.</td></tr>`;
 
-    // Render Total Match Count
     const countElem = document.getElementById('total-matches-count');
     if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
     
-    // Render Matches History Log
     let matchesHtml = '';
     filteredLogs.slice().reverse().forEach(log => {
         const valA = parseInt(log.scoreA || 0);
@@ -719,7 +957,7 @@ function updateLeaderboardList() {
 }
 
 // ==========================================
-// MODAL POPUP OPERATIONAL (WITH DATE & CORRECT SCORE PERSPECTIVE)
+// MODAL POPUP OPERATIONAL
 // ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
@@ -730,7 +968,6 @@ window.openHistoryModal = function(playerId, playerName) {
 
     title.innerText = playerName;
 
-    // Filter log berdasarkan ID pemain DAN periode filter yang aktif
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
         const logPeriod = extractIsoPeriod(log);
@@ -748,11 +985,9 @@ window.openHistoryModal = function(playerId, playerName) {
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
         const isWinner = (isTeamA && isTeamAWin) || (!isTeamA && !isTeamAWin);
         
-        // Partner & Opponent
         const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
         const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
         
-        // Penyesuaian perspektif skor (Skor tim pemain selalu di kiri)
         const myTeamScore = isTeamA ? valA : valB;
         const opponentScore = isTeamA ? valB : valA;
         const finalScoreStr = `${myTeamScore} - ${opponentScore}`;
