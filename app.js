@@ -23,7 +23,9 @@ let currentSchedule = {};
 let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
 let isLayoutRendered = false;
-let selectedMonthFilter = 'ALL'; // Dynamic period filter ('YYYY-MM' or 'ALL')
+
+// Dynamic Filter State (Alternatif 2: YYYY-MM atau 'ALL')
+let selectedPeriod = 'ALL';
 
 // ==========================================
 // THEME SYSTEM (LIGHT / DARK MODE)
@@ -51,7 +53,6 @@ function updateThemeIcon(icon) {
     if (btn) btn.innerText = icon;
 }
 
-// Inisialisasi tema awal
 initTheme();
 
 // ==========================================
@@ -100,18 +101,20 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <!-- FILTER PERIODE BULAN & TAHUN -->
-            <div class="bg-[#1E2638] p-4 rounded-2xl border border-slate-800/50 shadow-xl flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-lg">📅</span>
-                    <div>
+            <!-- FILTER PERIODE MONTH PICKER (NATIVE SCROLL) -->
+            <div class="bg-[#1E2638] p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">📅</span>
                         <h3 class="text-xs font-bold text-white">Filter Period</h3>
-                        <p class="text-[10px] text-slate-400">Select month and year</p>
                     </div>
+                    <button onclick="resetFilterPeriode()" class="text-[10px] bg-[#0B0F17] text-[#FF5722] px-2.5 py-1 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition">Show All Time</button>
                 </div>
-                <select id="filter-month-year" onchange="changePeriodFilter(this.value)" class="bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-[#FF5722]">
-                    <option value="ALL">All Time (Overall)</option>
-                </select>
+                
+                <div>
+                    <input type="month" id="filter-month-picker" onchange="onMonthPickerChange(this.value)" 
+                           class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#FF5722] transition">
+                </div>
             </div>
 
             <!-- LEADERBOARD TABLE -->
@@ -156,7 +159,7 @@ function renderTabStructure() {
                 </div>
             </div>
         `;
-        populateFilterDropdown();
+        syncMonthPickerUI();
     } else {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
@@ -214,7 +217,6 @@ db.ref('badminton/current_schedule').on('value', (snapshot) => {
 db.ref('badminton/match_history').on('value', (snapshot) => {
     matchHistoryLogs = snapshot.val() || {};
     if (currentActiveTab === 'leaderboard') {
-        populateFilterDropdown();
         updateLeaderboardList();
     }
 });
@@ -547,46 +549,24 @@ window.simpanSesiHarian = function() {
 };
 
 // ==========================================
-// GENERATOR FILTER PERIODE BULAN & TAHUN
+// CONTROLLER: MONTH PICKER & FILTER LOGIC
 // ==========================================
-function populateFilterDropdown() {
-    const select = document.getElementById('filter-month-year');
-    if (!select) return;
-
-    const monthsMap = new Set();
-
-    // 1. Ambil semua tanggal dari riwayat pertandingan yang ada
-    Object.values(matchHistoryLogs).forEach(log => {
-        if (log.isoDate) {
-            monthsMap.add(log.isoDate.substring(0, 7)); // YYYY-MM
-        }
-    });
-
-    // 2. Selalu generasikan 12 bulan terakhir secara otomatis agar dropdown tidak kosong
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        monthsMap.add(`${yyyy}-${mm}`);
+function syncMonthPickerUI() {
+    const monthPicker = document.getElementById('filter-month-picker');
+    if (monthPicker) {
+        monthPicker.value = selectedPeriod === 'ALL' ? '' : selectedPeriod;
     }
-
-    const sortedMonths = Array.from(monthsMap).sort().reverse();
-
-    let optionsHtml = `<option value="ALL" ${selectedMonthFilter === 'ALL' ? 'selected' : ''}>All Time (Overall)</option>`;
-    sortedMonths.forEach(ym => {
-        const [year, month] = ym.split('-');
-        const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const monthName = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        
-        optionsHtml += `<option value="${ym}" ${selectedMonthFilter === ym ? 'selected' : ''}>${monthName}</option>`;
-    });
-
-    select.innerHTML = optionsHtml;
 }
 
-window.changePeriodFilter = function(filterValue) {
-    selectedMonthFilter = filterValue;
+window.onMonthPickerChange = function(val) {
+    selectedPeriod = val || 'ALL';
+    updateLeaderboardList();
+};
+
+window.resetFilterPeriode = function() {
+    selectedPeriod = 'ALL';
+    const monthPicker = document.getElementById('filter-month-picker');
+    if (monthPicker) monthPicker.value = '';
     updateLeaderboardList();
 };
 
@@ -599,9 +579,15 @@ function updateLeaderboardList() {
     if (!tbody || !matchesContainer) return;
 
     const allLogs = Object.values(matchHistoryLogs);
+    
+    // Filter log berdasarkan ISO Period YYYY-MM
     const filteredLogs = allLogs.filter(log => {
-        if (selectedMonthFilter === 'ALL') return true;
-        return log.isoDate && log.isoDate.startsWith(selectedMonthFilter);
+        if (!log.isoDate) return false;
+        if (selectedPeriod === 'ALL') return true;
+        
+        // Ambil bagian "YYYY-MM" dari "YYYY-MM-DD"
+        const logPeriod = log.isoDate.substring(0, 7);
+        return logPeriod === selectedPeriod;
     });
 
     let playerStatsMap = {};
@@ -609,7 +595,7 @@ function updateLeaderboardList() {
         playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
     });
 
-    if (selectedMonthFilter === 'ALL') {
+    if (selectedPeriod === 'ALL') {
         Object.values(globalPlayers).forEach(p => {
             playerStatsMap[p.id].win = p.win || 0;
             playerStatsMap[p.id].lose = p.lose || 0;
@@ -695,8 +681,12 @@ window.openHistoryModal = function(playerId, playerName) {
 
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
-        if (selectedMonthFilter === 'ALL') return isPlayerInMatch;
-        return isPlayerInMatch && log.isoDate && log.isoDate.startsWith(selectedMonthFilter);
+        if (!log.isoDate) return false;
+        
+        const logPeriod = log.isoDate.substring(0, 7);
+        const matchPeriod = (selectedPeriod === 'ALL' || logPeriod === selectedPeriod);
+
+        return isPlayerInMatch && matchPeriod;
     });
 
     let modalRowsHtml = '';
