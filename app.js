@@ -264,8 +264,8 @@ function renderTabStructure() {
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Generate 10 Matches
+                <button onclick="generateBalancedMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Generate Balanced Matches
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -465,73 +465,57 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
     }
 
     db.ref(`badminton/players/${id}/is_active`).set(nextStatus).then(() => {
-        // Jika pemain baru di-check (menjadi aktif) di tengah jalan, langsung masukkan & rebalancing ke match pending pertama
+        // Jika pemain baru di-check (menjadi aktif) di tengah jalan, jalankan rebalancing penuh dari awal sampai akhir sesi agar jumlah main merata
         if (nextStatus) {
-            masukkanPemainBaruKePendingMatch(id);
+            rebalanceSemuaMatchAktif();
         }
     });
 };
 
-function masukkanPemainBaruKePendingMatch(newPlayerId) {
-    let pendingMatches = Object.values(currentSchedule)
-        .filter(m => m.status === 'pending')
-        .sort((a, b) => a.gameNo - b.gameNo);
+function rebalanceSemuaMatchAktif() {
+    let existingMatches = Object.values(currentSchedule).sort((a, b) => a.gameNo - b.gameNo);
+    if (existingMatches.length === 0) return;
 
-    if (pendingMatches.length === 0) return;
+    let activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
+    if (activePlayers.length < 4) return;
 
-    let targetMatch = pendingMatches[0];
-    let matchIds = [targetMatch.idA1, targetMatch.idA2, targetMatch.idB1, targetMatch.idB2];
-    
-    if (matchIds.includes(newPlayerId)) return;
+    let matchesObj = {};
+    let simulatedCounts = {};
+    activePlayers.forEach(p => { simulatedCounts[p.id] = 0; });
 
-    // Cari pemain di match tersebut yang match_count-nya paling tinggi untuk ditukar dengan pemain baru
-    let liveCounts = {};
-    Object.keys(globalPlayers).forEach(id => { liveCounts[id] = 0; });
-    Object.values(currentSchedule).forEach(m => {
-        [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
-            if (pId && liveCounts[pId] !== undefined) liveCounts[pId]++;
-        });
-    });
-
-    matchIds.sort((idA, idB) => (liveCounts[idB] || 0) - (liveCounts[idA] || 0));
-    let candidateToSwapId = matchIds[0];
-
-    if (!candidateToSwapId) return;
-
-    let newPlayer = globalPlayers[newPlayerId];
-    if (!newPlayer) return;
-
-    let updates = {};
-    if (targetMatch.idA1 === candidateToSwapId) { targetMatch.pA1 = newPlayer.name; targetMatch.idA1 = newPlayer.id; }
-    else if (targetMatch.idA2 === candidateToSwapId) { targetMatch.pA2 = newPlayer.name; targetMatch.idA2 = newPlayer.id; }
-    else if (targetMatch.idB1 === candidateToSwapId) { targetMatch.pB1 = newPlayer.name; targetMatch.idB1 = newPlayer.id; }
-    else if (targetMatch.idB2 === candidateToSwapId) { targetMatch.pB2 = newPlayer.name; targetMatch.idB2 = newPlayer.id; }
-
-    updates[`badminton/current_schedule/${targetMatch.id}`] = targetMatch;
-
-    // Lakukan rebalancing berantai ke match pending berikutnya menggunakan pemain yang digeser keluar
-    let activeSubstituteId = candidateToSwapId;
-    let subsequentPendingMatches = pendingMatches.filter(m => m.gameNo > targetMatch.gameNo);
-
-    subsequentPendingMatches.forEach(subMatch => {
-        let subIds = [subMatch.idA1, subMatch.idA2, subMatch.idB1, subMatch.idB2];
-        if (subIds.includes(activeSubstituteId)) return;
-
-        subIds.sort((idA, idB) => (liveCounts[idB] || 0) - (liveCounts[idA] || 0));
-        let nextSwapId = subIds[0];
-
-        if (nextSwapId && nextSwapId !== activeSubstituteId) {
-            if (subMatch.idA1 === nextSwapId) { subMatch.pA1 = globalPlayers[activeSubstituteId].name; subMatch.idA1 = activeSubstituteId; }
-            else if (subMatch.idA2 === nextSwapId) { subMatch.pA2 = globalPlayers[activeSubstituteId].name; subMatch.idA2 = activeSubstituteId; }
-            else if (subMatch.idB1 === nextSwapId) { subMatch.pB1 = globalPlayers[activeSubstituteId].name; subMatch.idB1 = activeSubstituteId; }
-            else if (subMatch.idB2 === nextSwapId) { subMatch.pB2 = globalPlayers[activeSubstituteId].name; subMatch.idB2 = activeSubstituteId; }
-
-            updates[`badminton/current_schedule/${subMatch.id}`] = subMatch;
-            activeSubstituteId = nextSwapId;
+    // Pertahankan match yang sudah selesai (done)
+    existingMatches.forEach(m => {
+        if (m.status === 'done') {
+            matchesObj[m.id] = m;
+            [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
+                if (pId && simulatedCounts[pId] !== undefined) simulatedCounts[pId]++;
+            });
         }
     });
 
-    db.ref().update(updates);
+    // Re-generate ulang semua match yang masih pending agar mencakup pemain baru secara adil & merata
+    let pendingMatches = existingMatches.filter(m => m.status === 'pending');
+    pendingMatches.forEach(m => {
+        let pool = Object.values(globalPlayers).filter(p => p.is_active);
+        let bestCombo = selectBest4Players(pool, simulatedCounts, matchesObj, m.gameNo);
+        
+        if (bestCombo) {
+            simulatedCounts[bestCombo.tA[0].id]++;
+            simulatedCounts[bestCombo.tA[1].id]++;
+            simulatedCounts[bestCombo.tB[0].id]++;
+            simulatedCounts[bestCombo.tB[1].id]++;
+
+            matchesObj[m.id] = {
+                ...m,
+                pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
+                pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
+                pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
+                pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id
+            };
+        }
+    });
+
+    db.ref('badminton/current_schedule').set(matchesObj);
 }
 
 function updateAbsenHariIniList() {
@@ -551,7 +535,6 @@ function updateAbsenHariIniList() {
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
     sorted.forEach(p => {
         const isScheduled = scheduledPlayerIds.has(p.id);
-        // Jika pemain sudah masuk match, checkbox terkunci (tidak bisa di-uncheck)
         const isDisabledUncheck = p.is_active && isScheduled;
 
         html += `
@@ -568,7 +551,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// SMART EDIT / REBALANCING MATCH DI TENGAH JALAN (SUBSTITUTE-DRIVEN)
+// FULL REBALANCING SAAT MANUAL EDIT MATCH
 // ==========================================
 window.ubahPemainMatch = function(matchId, posisi, newPlayerId) {
     if (!currentSchedule[matchId]) return;
@@ -592,7 +575,7 @@ window.ubahPemainMatch = function(matchId, posisi, newPlayerId) {
         return;
     }
 
-    // Ubah pemain di match saat ini
+    // 1. Update posisi pemain di match saat ini
     if (posisi === 'A1') { match.pA1 = newPlayer.name; match.idA1 = newPlayer.id; }
     else if (posisi === 'A2') { match.pA2 = newPlayer.name; match.idA2 = newPlayer.id; }
     else if (posisi === 'B1') { match.pB1 = newPlayer.name; match.idB1 = newPlayer.id; }
@@ -601,73 +584,92 @@ window.ubahPemainMatch = function(matchId, posisi, newPlayerId) {
     let updates = {};
     updates[`badminton/current_schedule/${match.id}`] = match;
 
-    // === REBALANCING BERANTAI BERBASIS PEMAIN PENGGANTI (SUBSTITUTE) ===
-    let activeSubstituteId = newPlayerId;
-    let subsequentPendingMatches = Object.values(currentSchedule)
-        .filter(m => m.gameNo > match.gameNo && m.status === 'pending')
-        .sort((a, b) => a.gameNo - b.gameNo);
+    // 2. Jalankan Full Rebalancing Berantai ke seluruh match pending di bawahnya agar jumlah main seluruh pemain tetap seimbang
+    let existingMatches = Object.values(currentSchedule).sort((a, b) => a.gameNo - b.gameNo);
+    let activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
+    
+    let matchesObj = {};
+    let simulatedCounts = {};
+    activePlayers.forEach(p => { simulatedCounts[p.id] = 0; });
 
-    subsequentPendingMatches.forEach(subMatch => {
-        let subIds = [subMatch.idA1, subMatch.idA2, subMatch.idB1, subMatch.idB2];
-        if (subIds.includes(activeSubstituteId)) return;
-
-        let liveCounts = {};
-        Object.keys(globalPlayers).forEach(id => { liveCounts[id] = 0; });
-        Object.values(currentSchedule).forEach(m => {
+    existingMatches.forEach(m => {
+        if (m.status === 'done') {
+            matchesObj[m.id] = m;
             [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
-                if (pId && liveCounts[pId] !== undefined) liveCounts[pId]++;
+                if (pId && simulatedCounts[pId] !== undefined) simulatedCounts[pId]++;
             });
-        });
-
-        subIds.sort((idA, idB) => (liveCounts[idB] || 0) - (liveCounts[idA] || 0));
-        let candidateToSwapId = subIds[0];
-
-        if (candidateToSwapId && candidateToSwapId !== activeSubstituteId) {
-            if (subMatch.idA1 === candidateToSwapId) { subMatch.pA1 = globalPlayers[activeSubstituteId].name; subMatch.idA1 = activeSubstituteId; }
-            else if (subMatch.idA2 === candidateToSwapId) { subMatch.pA2 = globalPlayers[activeSubstituteId].name; subMatch.idA2 = activeSubstituteId; }
-            else if (subMatch.idB1 === candidateToSwapId) { subMatch.pB1 = globalPlayers[activeSubstituteId].name; subMatch.idB1 = activeSubstituteId; }
-            else if (subMatch.idB2 === candidateToSwapId) { subMatch.pB2 = globalPlayers[activeSubstituteId].name; subMatch.idB2 = activeSubstituteId; }
-
-            updates[`badminton/current_schedule/${subMatch.id}`] = subMatch;
-            activeSubstituteId = candidateToSwapId;
         }
     });
 
-    db.ref().update(updates);
+    // Masukkan match yang sedang diedit ke state simulasi
+    let targetMatchId = match.id;
+    matchesObj[targetMatchId] = match;
+    [match.idA1, match.idA2, match.idB1, match.idB2].forEach(pId => {
+        if (pId && simulatedCounts[pId] !== undefined) simulatedCounts[pId]++;
+    });
+
+    let subsequentPendingMatches = existingMatches.filter(m => m.gameNo > match.gameNo && m.status === 'pending');
+    subsequentPendingMatches.forEach(subMatch => {
+        let pool = Object.values(globalPlayers).filter(p => p.is_active);
+        let bestCombo = selectBest4Players(pool, simulatedCounts, matchesObj, subMatch.gameNo);
+        
+        if (bestCombo) {
+            simulatedCounts[bestCombo.tA[0].id]++;
+            simulatedCounts[bestCombo.tA[1].id]++;
+            simulatedCounts[bestCombo.tB[0].id]++;
+            simulatedCounts[bestCombo.tB[1].id]++;
+
+            matchesObj[subMatch.id] = {
+                ...subMatch,
+                pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
+                pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
+                pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
+                pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id
+            };
+        }
+    });
+
+    db.ref('badminton/current_schedule').set(matchesObj);
 };
 
 // ==========================================
-// TRUE RANDOM MATCH GENERATOR (FAIR & ANTI-FATIGUE)
+// BALANCED MATCH GENERATOR (DYNAMIC FAIR SESSIONS)
 // ==========================================
-window.generate10Matches = function() {
+window.generateBalancedMatches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
     if (activePlayers.length < 4) {
-        alert("At least 4 'Active' players required to generate double fixtures!");
+        alert("At least 4 'Active' players required to generate fixtures!");
         return;
     }
 
-    // Ambil match yang sudah selesai (done) agar tetap dipertahankan dan dilompati nomor gamenya
     let existingMatches = Object.values(currentSchedule);
     let doneMatches = existingMatches.filter(m => m.status === 'done');
     let maxGameNo = doneMatches.reduce((max, m) => Math.max(max, m.gameNo), 0);
 
     let matchesObj = {};
-    // Masukkan kembali match yang sudah selesai ke objek schedule baru
     doneMatches.forEach(m => {
         matchesObj[m.id] = m;
     });
 
     let simulatedCounts = {};
     activePlayers.forEach(p => { simulatedCounts[p.id] = 0; });
-    // Hitung beban pemain yang sudah main di match 'done' agar penjatahan match berikutnya tetap adil
     doneMatches.forEach(m => {
         [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
             if (pId && simulatedCounts[pId] !== undefined) simulatedCounts[pId]++;
         });
     });
 
-    // Generate 10 match baru dimulai dari nomor setelah match yang sudah selesai
-    for (let i = 1; i <= 10; i++) {
+    // Tentukan target jumlah main yang adil (misal: setiap pemain bermain minimal 4-5 match per sesi atau kelipatan adil berdasarkan jumlah pemain aktif)
+    // Formula dinamis: Target total slot pemain dibagi jumlah pemain aktif (dibulatkan ke atas minimal 4 match per orang)
+    let totalDoneCount = Object.values(simulatedCounts).reduce((a, b) => a + b, 0);
+    let targetMatchesPerPlayer = Math.max(4, Math.ceil((totalDoneCount + (activePlayers.length * 4)) / activePlayers.length));
+    
+    // Total match yang perlu di-generate agar setiap pemain mencapai target count secara merata
+    let totalSlotsNeeded = targetMatchesPerPlayer * activePlayers.length;
+    let currentTotalSlots = totalDoneCount;
+    let gamesToGenerate = Math.max(10, Math.ceil((totalSlotsNeeded - currentTotalSlots) / 4));
+
+    for (let i = 1; i <= gamesToGenerate; i++) {
         let gameNo = maxGameNo + i;
         let pool = Object.values(globalPlayers).filter(p => p.is_active);
         let bestCombo = selectBest4Players(pool, simulatedCounts, matchesObj, gameNo);
@@ -692,7 +694,17 @@ window.generate10Matches = function() {
     let updates = {};
     updates['badminton/current_schedule'] = matchesObj;
 
-    db.ref().update(updates);
+    db.ref().update(updates).then(() => {
+        // Auto scroll balik lagi ke match 1 / paling atas setelah generate
+        const container = document.getElementById('container-schedule-list');
+        if (container) {
+            container.scrollTop = 0;
+        }
+        const firstCard = document.getElementById('card-match-no-1') || document.getElementById('card-match-no-' + (maxGameNo + 1));
+        if (firstCard) {
+            firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
 };
 
 // ==========================================
@@ -836,7 +848,7 @@ function updateScheduleList() {
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Balanced Matches' button.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
