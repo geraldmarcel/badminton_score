@@ -26,6 +26,35 @@ let isLayoutRendered = false;
 let selectedMonthFilter = 'ALL'; // Dynamic period filter ('YYYY-MM' or 'ALL')
 
 // ==========================================
+// THEME SYSTEM (LIGHT / DARK MODE)
+// ==========================================
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        updateThemeIcon('☀️');
+    } else {
+        document.documentElement.classList.add('dark');
+        updateThemeIcon('🌙');
+    }
+}
+
+window.toggleTheme = function() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    const newTheme = isDark ? 'dark' : 'light';
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(isDark ? '🌙' : '☀️');
+};
+
+function updateThemeIcon(icon) {
+    const btn = document.getElementById('btn-theme-toggle');
+    if (btn) btn.innerText = icon;
+}
+
+// Inisialisasi tema awal
+initTheme();
+
+// ==========================================
 // GLOBAL TAB SWITCHER
 // ==========================================
 window.switchTab = function(tabName) {
@@ -41,9 +70,9 @@ window.switchTab = function(tabName) {
     Object.keys(tabs).forEach(key => {
         if (!tabs[key]) return;
         if (key === tabName) {
-            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
+            tabs[key].className = "flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
         } else {
-            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
+            tabs[key].className = "flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
     renderTabStructure();
@@ -451,7 +480,7 @@ function updateScheduleList() {
 }
 
 // ==========================================
-// SAVE SESSION & ACCUMULATE POINTS (FIXED LOGIC)
+// SAVE SESSION & ACCUMULATE POINTS
 // ==========================================
 window.simpanSesiHarian = function() {
     if (!confirm("End today's session? All saved match points will be officially injected into the Leaderboard & History!")) return;
@@ -460,7 +489,6 @@ window.simpanSesiHarian = function() {
     const matches = Object.values(currentSchedule);
     const now = new Date();
     
-    // Trik mendapatkan format YYYY-MM-DD sesuai zona waktu lokal
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
@@ -477,7 +505,6 @@ window.simpanSesiHarian = function() {
         const valA = parseInt(m.scoreA || 0);
         const valB = parseInt(m.scoreB || 0);
 
-        // Injeksikan log match baru ke node badminton/match_history
         const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         updates[`badminton/match_history/${logId}`] = {
             date: displayDateStr,
@@ -503,7 +530,6 @@ window.simpanSesiHarian = function() {
         }
     });
 
-    // Tambahkan akumulasi sesi hari ini ke poin lama di Firebase
     Object.keys(globalPlayers).forEach(id => {
         const currentWin = globalPlayers[id]?.win || 0;
         const currentLose = globalPlayers[id]?.lose || 0;
@@ -521,18 +547,29 @@ window.simpanSesiHarian = function() {
 };
 
 // ==========================================
-// FILTER PERIODE BULAN & TAHUN
+// GENERATOR FILTER PERIODE BULAN & TAHUN
 // ==========================================
 function populateFilterDropdown() {
     const select = document.getElementById('filter-month-year');
     if (!select) return;
 
     const monthsMap = new Set();
+
+    // 1. Ambil semua tanggal dari riwayat pertandingan yang ada
     Object.values(matchHistoryLogs).forEach(log => {
         if (log.isoDate) {
             monthsMap.add(log.isoDate.substring(0, 7)); // YYYY-MM
         }
     });
+
+    // 2. Selalu generasikan 12 bulan terakhir secara otomatis agar dropdown tidak kosong
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        monthsMap.add(`${yyyy}-${mm}`);
+    }
 
     const sortedMonths = Array.from(monthsMap).sort().reverse();
 
