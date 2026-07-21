@@ -30,15 +30,17 @@ let editingMatchLogId = null;
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
-// Map Nama Bulan
+// Map Nama Bulan ke Angka untuk Parse Data Format Teks Lama ("21 Jul 26")
 const MONTH_MAP = {
     jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05',
     jun: '06', jul: '07', agu: '08', aug: '08', sep: '09', okt: '10', oct: '10',
     nov: '11', des: '12', dec: '12'
 };
 
+// Helper: Konversi Tanggal Beda Format ke String YYYY-MM
 function extractIsoPeriod(log) {
     if (log.isoDate) return log.isoDate.substring(0, 7);
+    
     if (log.date && typeof log.date === 'string') {
         const parts = log.date.trim().split(' ');
         if (parts.length >= 3) {
@@ -50,23 +52,6 @@ function extractIsoPeriod(log) {
         }
     }
     return '';
-}
-
-// ==========================================
-// HELPER AUTO CHECK-IN
-// ==========================================
-// Fungsi baru untuk mengekstrak ID pemain dari jadwal
-function getActivePlayerIdsFromSchedule(schedule) {
-    const activeIds = new Set();
-    if (!schedule) return activeIds;
-    
-    Object.values(schedule).forEach(match => {
-        if (match.idA1) activeIds.add(match.idA1);
-        if (match.idA2) activeIds.add(match.idA2);
-        if (match.idB1) activeIds.add(match.idB1);
-        if (match.idB2) activeIds.add(match.idB2);
-    });
-    return activeIds;
 }
 
 // ==========================================
@@ -106,7 +91,7 @@ window.switchTab = function(tabName) {
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
-        leaderboard: document.getElementById('btn-tab-[#FF5722]') || document.getElementById('btn-[#FF5722]'),
+        leaderboard: document.getElementById('btn-tab-[#FF5722]') || document.getElementById('btn-tab-leaderboard'),
         database: document.getElementById('btn-tab-database')
     };
 
@@ -274,13 +259,13 @@ function renderTabStructure() {
                     <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Check-in)</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for auto matchmaking rotation.</p>
+                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for full rotation matchmaking.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generateFairMatches(false)" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Reset & Re-Generate All
+                <button onclick="generateFairMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Generate Full Rotation
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -320,7 +305,7 @@ function renderTabStructure() {
                         </div>
                     </div>
                     <button onclick="saveAndRebalanceLineup()" class="w-full bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider mt-2">
-                        💾 Save & Re-balance Smoothly
+                        💾 Save & Re-balance Subsequent
                     </button>
                 </div>
             </div>
@@ -414,15 +399,21 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// CHECK-IN HANDLER
+// TAB: ATTENDANCE TOGGLE (LOCK UNCHECK WHEN SCHEDULED & AUTO-BALANCE)
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
-    
+    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
+
+    if (hasActiveMatches && !nextStatus) {
+        alert("Action Denied: Cannot uncheck players once matches are generated!");
+        renderTabStructure();
+        return;
+    }
+
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus }).then(() => {
-        const activeCount = Object.values(globalPlayers).filter(p => p.is_active || p.id === id).length;
-        if (activeCount >= 4) {
-            generateFairMatches(true);
+        if (hasActiveMatches && nextStatus) {
+            autoBalanceCurrentSchedule();
         }
     });
 };
@@ -430,22 +421,16 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
 function updateAbsenHariIniList() {
     const container = document.getElementById('container-absen-list');
     if (!container) return;
-    
-    // Auto-detect ID pemain yang ada di jadwal aktif
-    const activePlayerIdsInSchedule = getActivePlayerIdsFromSchedule(currentSchedule);
-
     let html = '';
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
+    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
 
     sorted.forEach(p => {
-        // Pemain tercentang otomatis jika ada di jadwal ATAU is_active bernilai true
-        const isChecked = activePlayerIdsInSchedule.has(p.id) || p.is_active;
-
         html += `
-            <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${isChecked ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
+            <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                    <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${isChecked})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
-                    <span class="text-xs font-bold ${isChecked ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
+                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
+                    <span class="text-xs font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
                 </div>
                 <span class="text-[9px] text-slate-600 font-bold shrink-0 ml-0.5">(${p.match_count}x)</span>
             </label>
@@ -455,19 +440,13 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// ROTATION ALGORITHM: PASANGAN & LAWAN BARU (DYNAMIC)
+// FULL ROTATION FAIR MATCHES GENERATOR 
+// (Setiap orang pasti bisa saling berpasangan & melawan siapa saja - Tanpa Pot)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
-    const playersList = Object.values(globalPlayers);
-    let activePlayers = playersList.filter(p => p.is_active);
-    
-    // Fallback: Jika tidak ada yang dicheck-in (misal tombol di-generate pertama kali), ambil semua pemain di club.
+    const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
     if (activePlayers.length < 4) {
-        activePlayers = playersList;
-    }
-
-    if (activePlayers.length < 4) {
-        alert("Minimal harus ada 4 pemain terdaftar untuk membuat pertandingan!");
+        alert("Minimal harus ada 4 pemain yang 'Check-in' (aktif) untuk membuat jadwal!");
         return;
     }
 
@@ -476,41 +455,23 @@ window.generateFairMatches = function(preserveDone = true) {
         tempPlayers[p.id] = { 
             id: p.id, 
             name: p.name, 
-            match_count: p.match_count || 0, // Ambil base match_count
-            last_played_match: -10 
+            match_count: 0, 
+            last_played_match: -5 
         };
     });
 
+    let newMatchesObj = {};
     let existingDoneMatches = {};
-    let sessionPartnerHistory = {};
-    let sessionOpponentHistory = {};
-
-    const addSessionHistory = (p1, p2, type) => {
-        const key = p1 < p2 ? `${p1}_${p2}` : `${p2}_${p1}`;
-        if (type === 'partner') {
-            sessionPartnerHistory[key] = (sessionPartnerHistory[key] || 0) + 1;
-        } else {
-            sessionOpponentHistory[key] = (sessionOpponentHistory[key] || 0) + 1;
-        }
-    };
 
     if (preserveDone && currentSchedule) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
                 existingDoneMatches[m.id] = m;
-                // Kita tidak usah add match_count lagi di sini karena sudah disinkronisasi lewat globalPlayers
                 [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
                     if (pId && tempPlayers[pId]) {
+                        tempPlayers[pId].match_count++;
                         tempPlayers[pId].last_played_match = m.gameNo;
                     }
-                });
-                
-                if (m.idA1 && m.idA2) addSessionHistory(m.idA1, m.idA2, 'partner');
-                if (m.idB1 && m.idB2) addSessionHistory(m.idB1, m.idB2, 'partner');
-                [m.idA1, m.idA2].forEach(aId => {
-                    [m.idB1, m.idB2].forEach(bId => {
-                        if (aId && bId) addSessionHistory(aId, bId, 'opponent');
-                    });
                 });
             }
         });
@@ -518,25 +479,23 @@ window.generateFairMatches = function(preserveDone = true) {
 
     let startingGameNo = Object.keys(existingDoneMatches).length + 1;
     let totalActive = activePlayers.length;
-    let targetTotalMatches = Math.max(startingGameNo + 3, Math.ceil((totalActive * 3) / 4)); 
+    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 3) / 4)); 
+    let endingGameNo = startingGameNo + targetTotalMatches;
 
-    let newMatchesObj = {};
-
-    for (let i = startingGameNo; i <= targetTotalMatches; i++) {
+    for (let i = startingGameNo; i < endingGameNo; i++) {
         let pool = Object.values(tempPlayers);
         
-        // Urutkan berdasarkan batas istirahat 1-3 game & jumlah main
         pool.sort((a, b) => {
             let restA = i - a.last_played_match;
             let restB = i - b.last_played_match;
             
-            if (restA >= 2 && restB < 2) return -1;
-            if (restB >= 2 && restA < 2) return 1;
-
+            if (restA < 2 && restB >= 2) return 1;
+            if (restB < 2 && restA >= 2) return -1;
+            
             if (a.match_count !== b.match_count) {
                 return a.match_count - b.match_count;
             }
-            return restB - restA; 
+            return Math.random() - 0.5;
         });
 
         let selected = pool.slice(0, 4);
@@ -551,34 +510,23 @@ window.generateFairMatches = function(preserveDone = true) {
         ];
 
         let bestCombo = possibleCombos[0];
-        let minPenalty = Infinity;
+        let minScore = Infinity;
 
-        // Cari kombinasi dengan penalti terkecil
         possibleCombos.forEach(combo => {
-            let partnerTimes = 
-                getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner', sessionPartnerHistory) + 
-                getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner', sessionPartnerHistory);
+            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
+                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
             
-            let opponentTimes = 
-                getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent', sessionOpponentHistory) + 
-                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent', sessionOpponentHistory) +
-                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent', sessionOpponentHistory) + 
-                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent', sessionOpponentHistory);
+            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
 
-            let penaltyScore = (partnerTimes * 1000) + (opponentTimes * 10) + (Math.random() * 0.5);
+            let totalWeight = (partnerScore * 5) + opponentScore + (Math.random() * 0.5);
 
-            if (penaltyScore < minPenalty) {
-                minPenalty = penaltyScore;
+            if (totalWeight < minScore) {
+                minScore = totalWeight;
                 bestCombo = combo;
             }
-        });
-
-        addSessionHistory(bestCombo.tA[0].id, bestCombo.tA[1].id, 'partner');
-        addSessionHistory(bestCombo.tB[0].id, bestCombo.tB[1].id, 'partner');
-        [bestCombo.tA[0].id, bestCombo.tA[1].id].forEach(aId => {
-            [bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(bId => {
-                addSessionHistory(aId, bId, 'opponent');
-            });
         });
 
         [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
@@ -601,35 +549,21 @@ window.generateFairMatches = function(preserveDone = true) {
     }
 
     const finalSchedule = { ...existingDoneMatches, ...newMatchesObj };
-    
-    // OTOMATISASI CHECK-IN DI DATABASE SETELAH MATCH DIBUAT
-    let updates = {};
-    updates['badminton/current_schedule'] = finalSchedule;
-
-    // Tandai pemain yang terpilih di jadwal menjadi is_active = true
-    Object.values(finalSchedule).forEach(m => {
-        [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
-            if (pId) updates[`badminton/players/${pId}/is_active`] = true;
-        });
-    });
-
-    // Simpan semua sekalian ke Firebase (Jadwal baru + Status aktif pemain)
-    db.ref().update(updates);
+    db.ref('badminton/current_schedule').set(finalSchedule);
 };
 
-function getHistoryScore(id1, id2, tipe, sessionHistory = {}) {
+function autoBalanceCurrentSchedule() {
+    generateFairMatches(true);
+}
+
+function getHistoryScore(id1, id2, tipe) {
     const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
-    let globalCount = 0;
-    if (globalHistory[key] && globalHistory[key][tipe]) {
-        globalCount = globalHistory[key][tipe];
-    }
-    let sessionCount = sessionHistory[key] || 0;
-    
-    return globalCount + sessionCount;
+    if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
+    return 0;
 }
 
 // ==========================================
-// SUBMIT & EDIT LINEUP MATCH
+// SUBMIT & EDIT LINEUP DENGAN BALANCING OTOMATIS
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -704,6 +638,7 @@ window.closeEditLineupModal = function() {
     document.getElementById('modal-edit-lineup').classList.add('hidden');
 };
 
+// BALANCING SYSTEM PADA EDIT LINEUP
 window.saveAndRebalanceLineup = function() {
     const matchId = document.getElementById('edit-match-id-target').value;
     const pA1Id = document.getElementById('select-edit-pA1').value;
@@ -717,7 +652,7 @@ window.saveAndRebalanceLineup = function() {
     }
 
     if (new Set([pA1Id, pA2Id, pB1Id, pB2Id]).size !== 4) {
-        alert("Setiap pemain hanya boleh dipilih sekali!");
+        alert("Setiap pemain hanya boleh dipilih sekali dalam satu match yang sama!");
         return;
     }
 
@@ -732,9 +667,69 @@ window.saveAndRebalanceLineup = function() {
     let updates = {};
     updates[`badminton/current_schedule/${matchId}`] = match;
 
+    // Hitung ulang akumulasi jam terbang (match_count) untuk re-balancing match berikutnya
+    let playerMatchCounts = {};
+    Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
+
+    const sortedMatches = Object.values(currentSchedule).sort((a,b)=> a.gameNo - b.gameNo);
+    sortedMatches.forEach(m => {
+        if (m.id === matchId) {
+            [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
+        } else if (m.gameNo > match.gameNo && m.status === 'pending') {
+            // Re-balancing otomatis untuk match setelahnya agar jam terbang tetap adil
+            let activePool = Object.values(globalPlayers).filter(p => p.is_active);
+            activePool.sort((a, b) => {
+                let countA = playerMatchCounts[a.id] || 0;
+                let countB = playerMatchCounts[b.id] || 0;
+                if (countA !== countB) return countA - countB;
+                return Math.random() - 0.5;
+            });
+            
+            let selected = activePool.slice(0, 4);
+            if (selected.length >= 4) {
+                // Terapkan sistem kombinasi cerdas untuk match yang di-rebalance
+                let possibleCombos = [
+                    { tA: [selected[0], selected[1]], tB: [selected[2], selected[3]] },
+                    { tA: [selected[0], selected[2]], tB: [selected[1], selected[3]] },
+                    { tA: [selected[0], selected[3]], tB: [selected[1], selected[2]] }
+                ];
+                let bestCombo = possibleCombos[0];
+                let minScore = Infinity;
+
+                possibleCombos.forEach(combo => {
+                    let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
+                                       getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+                    let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
+                                        getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                                        getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
+                                        getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+                    let totalWeight = (partnerScore * 5) + opponentScore;
+                    if (totalWeight < minScore) {
+                        minScore = totalWeight;
+                        bestCombo = combo;
+                    }
+                });
+
+                m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
+                m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
+                m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
+                m.idB2 = bestCombo.tB[1].id; m.pB2 = bestCombo.tB[1].name;
+
+                [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(id => {
+                    playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
+                });
+                updates[`badminton/current_schedule/${m.id}`] = m;
+            }
+        } else {
+            [m.idA1, m.idA2, m.idB1, m.idB2].forEach(id => {
+                if (id) playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
+            });
+        }
+    });
+
     db.ref().update(updates).then(() => {
         closeEditLineupModal();
-        generateFairMatches(true);
+        alert("Lineup berhasil diperbarui dan sisa match berhasil di-rebalance secara adil!");
     });
 };
 
@@ -745,15 +740,11 @@ window.batalSesiMatch = function() {
     updates['badminton/current_schedule'] = null;
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
-        updates[`badminton/players/${id}/is_active`] = false; // reset active status juga
     });
 
     db.ref().update(updates);
 };
 
-// ==========================================
-// SCHEDULE DISPLAY (MATCH DONE TETAP DITAMPILKAN TRANSPARAN)
-// ==========================================
 function updateScheduleList() {
     const container = document.getElementById('container-schedule-list');
     const resetContainer = document.getElementById('container-reset-session');
@@ -768,12 +759,12 @@ function updateScheduleList() {
         const displayScoreB = m.scoreB || 0;
 
         html += `
-            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-emerald-900/30 bg-[#0B0F17]/50 opacity-70' : 'border-slate-800/80'} shadow-inner w-full transition">
+            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner w-full">
                 <div class="flex justify-between items-center text-[9px] text-slate-500 font-bold mb-2 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <div class="flex items-center gap-2">
                         <button onclick="bukaEditLineupModal('${m.id}')" class="text-amber-400 hover:underline uppercase font-bold">✏️ Edit Lineup</button>
-                        <span class="${isDone ? 'text-emerald-400 font-extrabold':'text-[#FF5722]'} uppercase font-black">${isDone ? '✓ DONE' : 'PENDING'}</span>
+                        <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                     </div>
                 </div>
                 
@@ -782,9 +773,9 @@ function updateScheduleList() {
                     
                     <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
                         ${isDone ? `
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreA}</span>
                             <span class="text-slate-600 text-[10px]">:</span>
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800">${displayScoreB}</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreB}</span>
                         ` : `
                             <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
                             <span class="text-slate-700 text-[10px]">:</span>
@@ -804,7 +795,7 @@ function updateScheduleList() {
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Check-in players above to start auto rotation.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Full Rotation' button.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
