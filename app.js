@@ -24,7 +24,7 @@ let matchHistoryLogs = {};
 let currentActiveTab = 'matchmaking';
 let isLayoutRendered = false;
 
-// Dynamic Filter State (Alternatif 2: YYYY-MM atau 'ALL')
+// Dynamic Filter State
 let selectedPeriod = 'ALL';
 
 // ==========================================
@@ -71,9 +71,9 @@ window.switchTab = function(tabName) {
     Object.keys(tabs).forEach(key => {
         if (!tabs[key]) return;
         if (key === tabName) {
-            tabs[key].className = "flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
+            tabs[key].className = "flex-1 text-center py-1 text-[9px] sm:text-[11px] font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
         } else {
-            tabs[key].className = "flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
+            tabs[key].className = "flex-1 text-center py-1 text-[9px] sm:text-[11px] font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
     renderTabStructure();
@@ -87,48 +87,48 @@ function renderTabStructure() {
 
     if (currentActiveTab === 'database') {
         appContent.innerHTML = `
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl">
-                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Register New Club Member</h2>
-                <div class="flex gap-2">
-                    <input type="text" id="input-nama" placeholder="Enter player full name..." class="flex-1 bg-[#0B0F17] border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-[#FF5722] text-sm transition">
-                    <button onclick="aksiTambahPemain()" class="bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold px-5 py-2 rounded-xl text-sm transition">Register</button>
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl w-full">
+                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">Register New Club Member</h2>
+                <div class="flex gap-2 w-full">
+                    <input type="text" id="input-nama" placeholder="Enter player full name..." class="flex-1 bg-[#0B0F17] border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-[#FF5722] text-xs transition min-w-0">
+                    <button onclick="aksiTambahPemain()" class="bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold px-3.5 py-2 rounded-xl text-xs transition shrink-0">Register</button>
                 </div>
             </div>
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
-                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4">Registered Members (<span id="total-db">0</span>)</h2>
-                <div id="container-db-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
+                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest mb-3">Registered Members (<span id="total-db">0</span>)</h2>
+                <div id="container-db-list" class="space-y-2 max-h-96 overflow-y-auto pr-0.5"></div>
             </div>
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <!-- FILTER PERIODE MONTH PICKER (NATIVE SCROLL) -->
-            <div class="bg-[#1E2638] p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-2">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="text-base">📅</span>
+            <!-- FILTER PERIODE MONTH PICKER -->
+            <div class="bg-[#1E2638] p-3.5 rounded-2xl border border-slate-800/50 shadow-xl space-y-2.5 w-full">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <span class="text-xs">📅</span>
                         <h3 class="text-xs font-bold text-white">Filter Period</h3>
                     </div>
-                    <button onclick="resetFilterPeriode()" class="text-[10px] bg-[#0B0F17] text-[#FF5722] px-2.5 py-1 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition">Show All Time</button>
+                    <button onclick="resetFilterPeriode()" class="text-[9px] sm:text-[10px] bg-[#0B0F17] text-[#FF5722] px-2 py-0.5 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition shrink-0">Show All Time</button>
                 </div>
                 
-                <div>
+                <div class="w-full">
                     <input type="month" id="filter-month-picker" onchange="onMonthPickerChange(this.value)" 
-                           class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#FF5722] transition">
+                           class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#FF5722] transition">
                 </div>
             </div>
 
             <!-- LEADERBOARD TABLE -->
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
-                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-300">
-                        <thead class="text-xs uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
+                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
+                <div class="overflow-x-auto w-full">
+                    <table class="w-full text-left text-xs text-slate-300 min-w-[300px]">
+                        <thead class="text-[9px] sm:text-[10px] uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
                             <tr>
-                                <th class="py-3 px-2 text-center">Rank</th>
-                                <th class="py-3 px-2">Name</th>
-                                <th class="py-3 px-2 text-center">Won</th>
-                                <th class="py-3 px-2 text-center">Lost</th>
-                                <th class="py-3 px-2 text-center text-[#FF5722]">Win Rate</th>
+                                <th class="py-2 px-1 text-center w-6">#</th>
+                                <th class="py-2 px-1.5">Name</th>
+                                <th class="py-2 px-1 text-center w-8">W</th>
+                                <th class="py-2 px-1 text-center w-8">L</th>
+                                <th class="py-2 px-1 text-center w-12 text-[#FF5722]">Rate</th>
                             </tr>
                         </thead>
                         <tbody id="container-leaderboard-body"></tbody>
@@ -137,52 +137,52 @@ function renderTabStructure() {
             </div>
 
             <!-- ALL MATCHES HISTORY LOG -->
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
-                <div class="flex justify-between items-center border-b border-slate-800/60 pb-3">
-                    <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ All Matches History</h2>
-                    <span id="total-matches-count" class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
+                <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
+                    <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
+                    <span id="total-matches-count" class="text-[9px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
                 </div>
-                <div id="container-all-matches-list" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scroll-smooth"></div>
+                <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
 
-            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN (SISTEM KLIK) -->
-            <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-4">
-                <div class="bg-[#1E2638] w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-5 overflow-hidden">
-                    <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
-                        <div>
-                            <h3 id="modal-player-name" class="text-sm font-black text-white">Player Name</h3>
-                            <p class="text-[10px] text-[#FF5722] uppercase tracking-wider font-bold">📋 Recent Matches History Log</p>
+            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
+            <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
+                <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-2.5">
+                        <div class="min-w-0 flex-1 pr-2">
+                            <h3 id="modal-player-name" class="text-xs sm:text-sm font-black text-white truncate">Player Name</h3>
+                            <p class="text-[9px] text-[#FF5722] uppercase tracking-wider font-bold">📋 Matches History Log</p>
                         </div>
-                        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800">&times;</button>
+                        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800 shrink-0">&times;</button>
                     </div>
-                    <div id="modal-history-content" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+                    <div id="modal-history-content" class="space-y-2 max-h-72 overflow-y-auto pr-0.5"></div>
                 </div>
             </div>
         `;
         syncMonthPickerUI();
     } else {
         appContent.innerHTML = `
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
-                <div class="flex justify-between items-start mb-1">
-                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Courtside)</h2>
-                    <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-2 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition">Reset Matches Count</button>
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
+                <div class="flex justify-between items-start mb-1 gap-1">
+                    <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status</h2>
+                    <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[11px] text-slate-500 mb-4">Check "Active" for players currently at the venue. Uncheck immediately if someone rests or goes home early.</p>
-                <div id="container-absen-list" class="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1"></div>
+                <p class="text-[10px] text-slate-500 mb-3">Check active players at venue. Uncheck immediately if someone rests.</p>
+                <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
-            <div class="flex gap-2">
-                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3.5 px-4 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider">
-                    🎲 Generate 10 Random Matches
+            <div class="flex gap-1.5 w-full">
+                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-[11px] sm:text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Generate 10 Matches
                 </button>
-                <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-4 py-3.5 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg">
-                    💾 Save Daily Session
+                <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-[11px] sm:text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
+                    💾 Save Session
                 </button>
             </div>
 
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
-                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-3">📋 Current Fixture & Match Schedules</h2>
-                <div id="container-schedule-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-1 scroll-smooth"></div>
+            <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
+                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
+                <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
         `;
     }
@@ -248,9 +248,9 @@ function updateDatabasePemainList() {
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
     sorted.forEach(p => {
         html += `
-            <div class="flex items-center justify-between bg-[#0B0F17] p-3 rounded-xl border border-slate-800/40">
-                <span class="text-sm font-semibold text-slate-200">${p.name}</span>
-                <button onclick="hapusPemainClub('${p.id}')" class="text-xs bg-red-950/30 text-red-400 px-3 py-1 rounded-lg font-bold border border-red-900/10 hover:bg-red-900 transition">Remove</button>
+            <div class="flex items-center justify-between bg-[#0B0F17] p-2.5 rounded-xl border border-slate-800/40">
+                <span class="text-xs font-semibold text-slate-200 truncate mr-2">${p.name}</span>
+                <button onclick="hapusPemainClub('${p.id}')" class="text-[10px] bg-red-950/30 text-red-400 px-2.5 py-1 rounded-lg font-bold border border-red-900/10 hover:bg-red-900 transition shrink-0">Remove</button>
             </div>
         `;
     });
@@ -309,16 +309,16 @@ function updateAbsenHariIniList() {
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
     sorted.forEach(p => {
         html += `
-            <label class="flex items-center justify-between bg-[#0B0F17] p-2.5 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition">
-                <div class="flex items-center gap-2 truncate">
-                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-4 h-4 accent-[#FF5722]">
-                    <span class="text-xs font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
+            <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
+                    <span class="text-[11px] font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
                 </div>
-                <span class="text-[10px] text-slate-600 font-bold shrink-0 ml-1">(${p.match_count}x)</span>
+                <span class="text-[9px] text-slate-600 font-bold shrink-0 ml-0.5">(${p.match_count}x)</span>
             </label>
         `;
     });
-    container.innerHTML = html || `<p class="text-slate-600 text-xs col-span-2 text-center py-4">Please go to "Member Database" to add club members.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs col-span-2 text-center py-4">Please go to "Members" tab to add players.</p>`;
 }
 
 // ==========================================
@@ -379,7 +379,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT SCORE MATCH JADWAL HARIAN
+// SUBMIT SKOR GAME
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -438,47 +438,39 @@ function updateScheduleList() {
         const displayScoreB = m.scoreB || 0;
 
         html += `
-            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-4 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner">
-                <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-3 tracking-wider">
+            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner w-full">
+                <div class="flex justify-between items-center text-[9px] text-slate-500 font-bold mb-2 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                 </div>
                 
-                <div class="flex items-center justify-between text-xs font-bold gap-2">
-                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
-                    <div class="flex items-center justify-center gap-1 w-[18%]">
+                <div class="flex items-center justify-between text-[11px] sm:text-xs font-bold gap-1 w-full">
+                    <div class="w-[38%] p-1.5 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
+                    
+                    <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
                         ${isDone ? `
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded">${displayScoreA}</span>
-                            <span class="text-slate-600">:</span>
-                            <span class="text-sm font-black text-white bg-[#1E2638] px-2 py-0.5 rounded">${displayScoreB}</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreA}</span>
+                            <span class="text-slate-600 text-[10px]">:</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreB}</span>
                         ` : `
-                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none">
-                            <span class="text-slate-700">:</span>
-                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-1 text-[#FF5722] font-extrabold focus:outline-none">
+                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
+                            <span class="text-slate-700 text-[10px]">:</span>
+                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
                         `}
                     </div>
-                    <div class="w-[41%] p-2 rounded-lg truncate ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pB1} & ${m.pB2}</div>
+
+                    <div class="w-[38%] p-1.5 rounded-lg truncate text-right ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pB1} & ${m.pB2}</div>
                 </div>
 
                 ${!isDone ? `
-                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-3 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1.5 rounded-lg text-[10px] transition uppercase tracking-widest">💾 Save Score</button>
+                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-2 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1 rounded-lg text-[9px] transition uppercase tracking-widest">💾 Save Score</button>
                 ` : `
-                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-3 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 font-bold py-1 rounded-lg text-[9px] transition uppercase tracking-widest">✏️ Edit Score</button>
+                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-2 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 font-bold py-0.5 rounded-lg text-[8px] transition uppercase tracking-widest">✏️ Edit Score</button>
                 `}
             </div>
         `;
     });
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Random Matches' button.</p>`;
-
-    if (mList.length > 0) {
-        const firstPendingMatch = mList.find(m => m.status === 'pending');
-        if (firstPendingMatch) {
-            setTimeout(() => {
-                const targetCard = document.getElementById(`card-match-no-${firstPendingMatch.gameNo}`);
-                if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 100);
-        }
-    }
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button.</p>`;
 }
 
 // ==========================================
@@ -498,9 +490,6 @@ window.simpanSesiHarian = function() {
     
     const displayDateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
 
-    let sessionStats = {};
-    Object.keys(globalPlayers).forEach(id => { sessionStats[id] = { win: 0, lose: 0 }; });
-
     matches.forEach(m => {
         if (m.status !== 'done') return;
 
@@ -518,25 +507,9 @@ window.simpanSesiHarian = function() {
             scoreA: valA, scoreB: valB,
             winner: valA >= valB ? 'A' : 'B'
         };
-
-        if (valA > valB) {
-            if (m.idA1 && sessionStats[m.idA1]) sessionStats[m.idA1].win += 1;
-            if (m.idA2 && sessionStats[m.idA2]) sessionStats[m.idA2].win += 1;
-            if (m.idB1 && sessionStats[m.idB1]) sessionStats[m.idB1].lose += 1;
-            if (m.idB2 && sessionStats[m.idB2]) sessionStats[m.idB2].lose += 1;
-        } else if (valB > valA) {
-            if (m.idB1 && sessionStats[m.idB1]) sessionStats[m.idB1].win += 1;
-            if (m.idB2 && sessionStats[m.idB2]) sessionStats[m.idB2].win += 1;
-            if (m.idA1 && sessionStats[m.idA1]) sessionStats[m.idA1].lose += 1;
-            if (m.idA2 && sessionStats[m.idA2]) sessionStats[m.idA2].lose += 1;
-        }
     });
 
     Object.keys(globalPlayers).forEach(id => {
-        const currentWin = globalPlayers[id]?.win || 0;
-        const currentLose = globalPlayers[id]?.lose || 0;
-        updates[`badminton/players/${id}/win`] = currentWin + (sessionStats[id]?.win || 0);
-        updates[`badminton/players/${id}/lose`] = currentLose + (sessionStats[id]?.lose || 0);
         updates[`badminton/players/${id}/match_count`] = 0;
     });
 
@@ -571,7 +544,7 @@ window.resetFilterPeriode = function() {
 };
 
 // ==========================================
-// UPDATE LEADERBOARD & ALL MATCHES LOG
+// HITUNGAN WIN/LOSE LEADERBOARD DINAMIS
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
@@ -580,12 +553,10 @@ function updateLeaderboardList() {
 
     const allLogs = Object.values(matchHistoryLogs);
     
-    // Filter log berdasarkan ISO Period YYYY-MM
     const filteredLogs = allLogs.filter(log => {
         if (!log.isoDate) return false;
         if (selectedPeriod === 'ALL') return true;
         
-        // Ambil bagian "YYYY-MM" dari "YYYY-MM-DD"
         const logPeriod = log.isoDate.substring(0, 7);
         return logPeriod === selectedPeriod;
     });
@@ -595,27 +566,23 @@ function updateLeaderboardList() {
         playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
     });
 
-    if (selectedPeriod === 'ALL') {
-        Object.values(globalPlayers).forEach(p => {
-            playerStatsMap[p.id].win = p.win || 0;
-            playerStatsMap[p.id].lose = p.lose || 0;
-        });
-    } else {
-        filteredLogs.forEach(log => {
-            const winTeam = log.winner;
-            if (winTeam === 'A') {
-                if (playerStatsMap[log.idA1]) playerStatsMap[log.idA1].win += 1;
-                if (playerStatsMap[log.idA2]) playerStatsMap[log.idA2].win += 1;
-                if (playerStatsMap[log.idB1]) playerStatsMap[log.idB1].lose += 1;
-                if (playerStatsMap[log.idB2]) playerStatsMap[log.idB2].lose += 1;
-            } else {
-                if (playerStatsMap[log.idB1]) playerStatsMap[log.idB1].win += 1;
-                if (playerStatsMap[log.idB2]) playerStatsMap[log.idB2].win += 1;
-                if (playerStatsMap[log.idA1]) playerStatsMap[log.idA1].lose += 1;
-                if (playerStatsMap[log.idA2]) playerStatsMap[log.idA2].lose += 1;
-            }
-        });
-    }
+    filteredLogs.forEach(log => {
+        const valA = parseInt(log.scoreA || 0);
+        const valB = parseInt(log.scoreB || 0);
+        const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
+        if (isTeamAWin) {
+            if (log.idA1 && playerStatsMap[log.idA1]) playerStatsMap[log.idA1].win += 1;
+            if (log.idA2 && playerStatsMap[log.idA2]) playerStatsMap[log.idA2].win += 1;
+            if (log.idB1 && playerStatsMap[log.idB1]) playerStatsMap[log.idB1].lose += 1;
+            if (log.idB2 && playerStatsMap[log.idB2]) playerStatsMap[log.idB2].lose += 1;
+        } else {
+            if (log.idB1 && playerStatsMap[log.idB1]) playerStatsMap[log.idB1].win += 1;
+            if (log.idB2 && playerStatsMap[log.idB2]) playerStatsMap[log.idB2].win += 1;
+            if (log.idA1 && playerStatsMap[log.idA1]) playerStatsMap[log.idA1].lose += 1;
+            if (log.idA2 && playerStatsMap[log.idA2]) playerStatsMap[log.idA2].lose += 1;
+        }
+    });
 
     const playersList = Object.values(playerStatsMap).map(p => {
         const total = p.win + p.lose;
@@ -629,35 +596,39 @@ function updateLeaderboardList() {
     playersList.forEach((p, idx) => {
         lbHtml += `
             <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
-                <td class="py-3 px-2 text-center text-slate-500">${idx + 1}</td>
-                <td class="py-3 px-2 text-white">
-                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold">
+                <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
+                <td class="py-2.5 px-1.5 text-white truncate max-w-[110px]">
+                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
                         ${p.name}
                     </span>
                 </td>
-                <td class="py-3 px-2 text-center text-[#FF5722]">${p.win}</td>
-                <td class="py-3 px-2 text-center text-slate-400">${p.lose}</td>
-                <td class="py-3 px-2 text-center text-[#FF5722] font-extrabold">${p.rate}%</td>
+                <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
+                <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
+                <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
             </tr>
         `;
     });
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical score metrics available for this period.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical data available.</td></tr>`;
 
     document.getElementById('total-matches-count').innerText = `${filteredLogs.length} Matches`;
     
     let matchesHtml = '';
     filteredLogs.slice().reverse().forEach(log => {
+        const valA = parseInt(log.scoreA || 0);
+        const valB = parseInt(log.scoreB || 0);
+        const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
         matchesHtml += `
-            <div class="bg-[#0B0F17] p-3 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2 text-xs">
-                <div class="w-[40%] truncate ${log.winner === 'A' ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+            <div class="bg-[#0B0F17] p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between gap-1.5 text-xs">
+                <div class="w-[38%] truncate ${isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
                     ${log.pA1} & ${log.pA2}
                 </div>
-                <div class="w-[20%] text-center shrink-0">
-                    <span class="bg-[#1E2638] px-2 py-0.5 rounded text-white font-black text-xs border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
-                    <div class="text-[9px] text-slate-600 mt-0.5">${log.date}</div>
+                <div class="w-[24%] text-center shrink-0">
+                    <span class="bg-[#1E2638] px-1.5 py-0.5 rounded text-white font-black text-[11px] border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
+                    <div class="text-[8px] text-slate-600 mt-0.5">${log.date}</div>
                 </div>
-                <div class="w-[40%] text-right truncate ${log.winner === 'B' ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+                <div class="w-[38%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
                     ${log.pB1} & ${log.pB2}
                 </div>
             </div>
@@ -668,7 +639,7 @@ function updateLeaderboardList() {
 }
 
 // ==========================================
-// MODAL POPUP OPERATIONAL (SISTEM KLIK)
+// MODAL POPUP OPERATIONAL
 // ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
@@ -691,23 +662,26 @@ window.openHistoryModal = function(playerId, playerName) {
 
     let modalRowsHtml = '';
     logsArray.slice(-8).reverse().forEach(log => {
+        const valA = parseInt(log.scoreA || 0);
+        const valB = parseInt(log.scoreB || 0);
+        const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
-        const isWinner = (isTeamA && log.winner === 'A') || (!isTeamA && log.winner === 'B');
+        const isWinner = (isTeamA && isTeamAWin) || (!isTeamA && !isTeamAWin);
         
         const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
         const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
         const finalScoreStr = `${log.scoreA} - ${log.scoreB}`;
 
         modalRowsHtml += `
-            <div class="flex justify-between items-center text-[11px] py-2 border-b border-slate-800/80 gap-3">
-                <span class="font-black px-1.5 py-0.5 rounded text-[10px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
+            <div class="flex justify-between items-center text-[10px] py-1.5 border-b border-slate-800/80 gap-1.5">
+                <span class="font-black px-1 py-0.5 rounded text-[8px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
                     ${isWinner ? 'WIN' : 'LOSE'}
                 </span>
-                <div class="text-slate-400 truncate max-w-[180px] flex-1">
+                <div class="text-slate-400 truncate flex-1 min-w-0">
                     <span class="text-slate-500">w/</span> ${partnerName} <span class="text-slate-600">vs</span> ${opponentString}
                 </div>
-                <span class="text-white font-black shrink-0 bg-[#0B0F17] px-2 py-0.5 rounded border border-slate-800">${finalScoreStr}</span>
-                <span class="text-slate-600 shrink-0 text-[10px]">${log.date}</span>
+                <span class="text-white font-black shrink-0 bg-[#0B0F17] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${finalScoreStr}</span>
             </div>
         `;
     });
