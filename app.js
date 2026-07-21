@@ -53,6 +53,23 @@ function extractIsoPeriod(log) {
 }
 
 // ==========================================
+// HELPER AUTO CHECK-IN
+// ==========================================
+// Fungsi baru untuk mengekstrak ID pemain dari jadwal
+function getActivePlayerIdsFromSchedule(schedule) {
+    const activeIds = new Set();
+    if (!schedule) return activeIds;
+    
+    Object.values(schedule).forEach(match => {
+        if (match.idA1) activeIds.add(match.idA1);
+        if (match.idA2) activeIds.add(match.idA2);
+        if (match.idB1) activeIds.add(match.idB1);
+        if (match.idB2) activeIds.add(match.idB2);
+    });
+    return activeIds;
+}
+
+// ==========================================
 // THEME SYSTEM
 // ==========================================
 function initTheme() {
@@ -413,15 +430,22 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
 function updateAbsenHariIniList() {
     const container = document.getElementById('container-absen-list');
     if (!container) return;
+    
+    // Auto-detect ID pemain yang ada di jadwal aktif
+    const activePlayerIdsInSchedule = getActivePlayerIdsFromSchedule(currentSchedule);
+
     let html = '';
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
 
     sorted.forEach(p => {
+        // Pemain tercentang otomatis jika ada di jadwal ATAU is_active bernilai true
+        const isChecked = activePlayerIdsInSchedule.has(p.id) || p.is_active;
+
         html += `
-            <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
+            <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${isChecked ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                    <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
-                    <span class="text-xs font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${isChecked})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
+                    <span class="text-xs font-bold ${isChecked ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
                 </div>
                 <span class="text-[9px] text-slate-600 font-bold shrink-0 ml-0.5">(${p.match_count}x)</span>
             </label>
@@ -434,15 +458,25 @@ function updateAbsenHariIniList() {
 // ROTATION ALGORITHM: PASANGAN & LAWAN BARU (DYNAMIC)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
-    const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
-    if (activePlayers.length < 4) return;
+    const playersList = Object.values(globalPlayers);
+    let activePlayers = playersList.filter(p => p.is_active);
+    
+    // Fallback: Jika tidak ada yang dicheck-in (misal tombol di-generate pertama kali), ambil semua pemain di club.
+    if (activePlayers.length < 4) {
+        activePlayers = playersList;
+    }
+
+    if (activePlayers.length < 4) {
+        alert("Minimal harus ada 4 pemain terdaftar untuk membuat pertandingan!");
+        return;
+    }
 
     let tempPlayers = {};
     activePlayers.forEach(p => {
         tempPlayers[p.id] = { 
             id: p.id, 
             name: p.name, 
-            match_count: 0, 
+            match_count: p.match_count || 0, // Ambil base match_count
             last_played_match: -10 
         };
     });
@@ -464,9 +498,9 @@ window.generateFairMatches = function(preserveDone = true) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
                 existingDoneMatches[m.id] = m;
+                // Kita tidak usah add match_count lagi di sini karena sudah disinkronisasi lewat globalPlayers
                 [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
                     if (pId && tempPlayers[pId]) {
-                        tempPlayers[pId].match_count++;
                         tempPlayers[pId].last_played_match = m.gameNo;
                     }
                 });
@@ -519,7 +553,7 @@ window.generateFairMatches = function(preserveDone = true) {
         let bestCombo = possibleCombos[0];
         let minPenalty = Infinity;
 
-        // Cari kombinasi dengan penalti terkecil (utamakan partner baru -> opponent baru)
+        // Cari kombinasi dengan penalti terkecil
         possibleCombos.forEach(combo => {
             let partnerTimes = 
                 getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner', sessionPartnerHistory) + 
@@ -567,7 +601,20 @@ window.generateFairMatches = function(preserveDone = true) {
     }
 
     const finalSchedule = { ...existingDoneMatches, ...newMatchesObj };
-    db.ref('badminton/current_schedule').set(finalSchedule);
+    
+    // OTOMATISASI CHECK-IN DI DATABASE SETELAH MATCH DIBUAT
+    let updates = {};
+    updates['badminton/current_schedule'] = finalSchedule;
+
+    // Tandai pemain yang terpilih di jadwal menjadi is_active = true
+    Object.values(finalSchedule).forEach(m => {
+        [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
+            if (pId) updates[`badminton/players/${pId}/is_active`] = true;
+        });
+    });
+
+    // Simpan semua sekalian ke Firebase (Jadwal baru + Status aktif pemain)
+    db.ref().update(updates);
 };
 
 function getHistoryScore(id1, id2, tipe, sessionHistory = {}) {
@@ -698,6 +745,7 @@ window.batalSesiMatch = function() {
     updates['badminton/current_schedule'] = null;
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
+        updates[`badminton/players/${id}/is_active`] = false; // reset active status juga
     });
 
     db.ref().update(updates);
