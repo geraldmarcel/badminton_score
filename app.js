@@ -23,7 +23,7 @@ let currentSchedule = {};
 let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
 
-// Dynamic Filter State
+// Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
 // ==========================================
@@ -62,7 +62,7 @@ window.switchTab = function(tabName) {
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
-        leaderboard: document.getElementById('btn-tab-leaderboard'),
+        leaderboard: document.getElementById('btn-tab-[#FF5722]') || document.getElementById('btn-tab-leaderboard'),
         database: document.getElementById('btn-tab-database')
     };
 
@@ -108,7 +108,7 @@ function renderTabStructure() {
                 </div>
                 
                 <div class="w-full">
-                    <input type="month" id="filter-month-picker" onchange="onMonthPickerChange(this.value)" 
+                    <input type="month" id="filter-month-picker" oninput="onMonthPickerChange(this.value)" onchange="onMonthPickerChange(this.value)" 
                            class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-[#FF5722] transition">
                 </div>
             </div>
@@ -155,7 +155,6 @@ function renderTabStructure() {
                 </div>
             </div>
         `;
-        syncMonthPickerUI();
     } else {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
@@ -183,14 +182,20 @@ function renderTabStructure() {
         `;
     }
     
-    // Refresh data secara konsisten setiap kali tab dirender
+    // Refresh data dan re-bind elemen UI begitu tab selesai dirender ke DOM
     refreshActiveListData();
 }
 
 function refreshActiveListData() {
     if (currentActiveTab === 'database') updateDatabasePemainList();
-    if (currentActiveTab === 'leaderboard') updateLeaderboardList();
-    if (currentActiveTab === 'matchmaking') { updateAbsenHariIniList(); updateScheduleList(); }
+    if (currentActiveTab === 'leaderboard') {
+        syncMonthPickerUI();
+        updateLeaderboardList();
+    }
+    if (currentActiveTab === 'matchmaking') { 
+        updateAbsenHariIniList(); 
+        updateScheduleList(); 
+    }
 }
 
 // ==========================================
@@ -487,7 +492,7 @@ window.simpanSesiHarian = function() {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const isoDateStr = `${year}-${month}-${day}`;
+    const isoDateStr = `${year}-${month}`; // Format YYYY-MM
     
     const displayDateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
 
@@ -533,14 +538,13 @@ function syncMonthPickerUI() {
 }
 
 window.onMonthPickerChange = function(val) {
-    selectedPeriod = val || 'ALL';
+    selectedPeriod = val && val.trim() !== '' ? val : 'ALL';
     updateLeaderboardList();
 };
 
 window.resetFilterPeriode = function() {
     selectedPeriod = 'ALL';
-    const monthPicker = document.getElementById('filter-month-picker');
-    if (monthPicker) monthPicker.value = '';
+    syncMonthPickerUI();
     updateLeaderboardList();
 };
 
@@ -555,17 +559,19 @@ function updateLeaderboardList() {
 
     const allLogs = Object.values(matchHistoryLogs);
     
+    // Filter riwayat pertandingan berdasarkan bulan yang dipilih
     const filteredLogs = allLogs.filter(log => {
-        if (!log.isoDate) return true;
         if (selectedPeriod === 'ALL') return true;
+        if (!log.isoDate) return true; // fallback jika data lama tidak ada isoDate
         
+        // Ambil format YYYY-MM dari isoDate
         const logPeriod = log.isoDate.substring(0, 7);
         return logPeriod === selectedPeriod;
     });
 
     let playerStatsMap = {};
     
-    // Inisialisasi daftar pemain dari globalPlayers
+    // Inisialisasi statistik pemain
     Object.values(globalPlayers).forEach(p => {
         playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
     });
@@ -575,7 +581,7 @@ function updateLeaderboardList() {
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
 
-        // Pendaftaran nama/ID pemain otomatis jika belum tercatat di globalPlayers
+        // Registrasi ID darurat jika belum terdaftar
         if (log.idA1 && !playerStatsMap[log.idA1]) playerStatsMap[log.idA1] = { id: log.idA1, name: log.pA1 || 'Player', win: 0, lose: 0 };
         if (log.idA2 && !playerStatsMap[log.idA2]) playerStatsMap[log.idA2] = { id: log.idA2, name: log.pA2 || 'Player', win: 0, lose: 0 };
         if (log.idB1 && !playerStatsMap[log.idB1]) playerStatsMap[log.idB1] = { id: log.idB1, name: log.pB1 || 'Player', win: 0, lose: 0 };
@@ -600,6 +606,7 @@ function updateLeaderboardList() {
         return { ...p, total, rate };
     });
 
+    // Urutkan berdasarkan Win Rate terbanyak -> Jumlah Win -> Nama
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     let lbHtml = '';
@@ -619,7 +626,7 @@ function updateLeaderboardList() {
         `;
     });
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical data available.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical data available for selected period.</td></tr>`;
 
     const countElem = document.getElementById('total-matches-count');
     if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
