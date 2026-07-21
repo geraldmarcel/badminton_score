@@ -87,7 +87,7 @@ initTheme();
 // ==========================================
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
-    if (tabName !== 'leaderboard') isAdminView = false; // Reset admin mode jika pindah tab
+    if (tabName !== 'leaderboard') isAdminView = false;
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
@@ -132,7 +132,6 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <!-- FILTER PERIODE MONTH PICKER -->
             <div class="bg-[#1E2638] p-3.5 rounded-2xl border border-slate-800/50 shadow-xl space-y-2.5 w-full">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -148,7 +147,6 @@ function renderTabStructure() {
             </div>
 
             ${!isAdminView ? `
-                <!-- LEADERBOARD PUBLIC VIEW -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
                     <div class="flex justify-between items-center cursor-pointer" onclick="toggleAdminMode()" title="Click to open Admin Panel">
                         <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest hover:underline flex items-center gap-1.5">
@@ -172,7 +170,6 @@ function renderTabStructure() {
                     </div>
                 </div>
 
-                <!-- ALL MATCHES HISTORY LOG (PUBLIC) -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                     <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
                         <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
@@ -181,7 +178,6 @@ function renderTabStructure() {
                     <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
                 </div>
             ` : `
-                <!-- ADMIN PANEL VIEW -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 shadow-2xl space-y-3 w-full">
                     <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
                         <div class="flex items-center gap-1.5">
@@ -193,7 +189,6 @@ function renderTabStructure() {
                         </button>
                     </div>
 
-                    <!-- FORM INSERT / EDIT MATCH -->
                     <div id="container-admin-form" class="bg-[#0B0F17] p-3 rounded-xl border border-slate-800 space-y-2.5">
                         <h3 id="form-admin-title" class="text-[11px] font-bold text-[#FF5722] uppercase tracking-wider">➕ Add New Match Entry</h3>
                         
@@ -235,7 +230,6 @@ function renderTabStructure() {
                         </div>
                     </div>
 
-                    <!-- ADMIN MATCHES LIST FOR EDIT & DELETE -->
                     <div class="space-y-2">
                         <div class="flex justify-between items-center pt-2 border-t border-slate-800">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Existing Matches (<span id="total-matches-admin-count">0</span>)</h3>
@@ -245,7 +239,6 @@ function renderTabStructure() {
                 </div>
             `}
 
-            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
                 <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-2.5">
@@ -263,16 +256,16 @@ function renderTabStructure() {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
                 <div class="flex justify-between items-start mb-1 gap-1">
-                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status</h2>
+                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Check-in)</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[10px] text-slate-500 mb-3">Check active players at venue. Uncheck immediately if someone rests.</p>
+                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for rotation matchmaking.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Generate 10 Matches
+                <button onclick="generateFairMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Generate Fair Rotation
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -280,9 +273,41 @@ function renderTabStructure() {
             </div>
 
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
-                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
+                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules & Lineup</h2>
                 <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
                 <div id="container-reset-session" class="pt-2"></div>
+            </div>
+
+            <!-- MODAL EDIT LINEUP MATCH -->
+            <div id="modal-edit-lineup" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
+                <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-black text-white uppercase tracking-wider">✏️ Edit Match Lineup</h3>
+                        <button onclick="closeEditLineupModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800">&times;</button>
+                    </div>
+                    <input type="hidden" id="edit-match-id-target">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team A - P1</label>
+                            <select id="select-edit-pA1" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team A - P2</label>
+                            <select id="select-edit-pA2" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team B - P1</label>
+                            <select id="select-edit-pB1" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team B - P2</label>
+                            <select id="select-edit-pB2" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
+                        </div>
+                    </div>
+                    <button onclick="saveAndRebalanceLineup()" class="w-full bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider mt-2">
+                        💾 Save & Auto-Balance Subsequent
+                    </button>
+                </div>
             </div>
         `;
     }
@@ -332,7 +357,6 @@ db.ref('badminton/match_history').on('value', (snapshot) => {
     }
 });
 
-// INITIAL RENDER AT LAUNCH
 renderTabStructure();
 
 // ==========================================
@@ -375,47 +399,11 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: MATCHMAKING & AUTO-SUBSTITUTION
+// TAB: ATTENDANCE TOGGLE (CHECK ONLY)
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus });
-
-    if (nextStatus === false && Object.keys(currentSchedule).length > 0) {
-        let scheduleUpdates = {};
-        
-        Object.values(currentSchedule).forEach(m => {
-            if (m.status === 'pending') {
-                if (m.idA1 === id || m.idA2 === id || m.idB1 === id || m.idB2 === id) {
-                    let currentInMatchIds = [m.idA1, m.idA2, m.idB1, m.idB2];
-                    let candidatePlayers = Object.values(globalPlayers).filter(p => 
-                        p.is_active && p.id !== id && !currentInMatchIds.includes(p.id)
-                    );
-
-                    if (candidatePlayers.length > 0) {
-                        candidatePlayers.sort(() => Math.random() - 0.5);
-                        candidatePlayers.sort((a, b) => a.match_count - b.match_count);
-                        
-                        let substitute = candidatePlayers[0];
-
-                        if (m.idA1 === id) { m.pA1 = substitute.name; m.idA1 = substitute.id; }
-                        else if (m.idA2 === id) { m.pA2 = substitute.name; m.idA2 = substitute.id; }
-                        else if (m.idB1 === id) { m.pB1 = substitute.name; m.idB1 = substitute.id; }
-                        else if (m.idB2 === id) { m.pB2 = substitute.name; m.idB2 = substitute.id; }
-
-                        scheduleUpdates[`badminton/current_schedule/${m.id}`] = m;
-                        db.ref(`badminton/players/${substitute.id}`).update({
-                            match_count: (substitute.match_count || 0) + 1
-                        });
-                    }
-                }
-            }
-        });
-
-        if (Object.keys(scheduleUpdates).length > 0) {
-            db.ref().update(scheduleUpdates);
-        }
-    }
 };
 
 function updateAbsenHariIniList() {
@@ -438,23 +426,41 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// TRUE RANDOM MATCH GENERATOR
+// INTELLIGENT FAIR ROTATION GENERATOR
 // ==========================================
-window.generate10Matches = function() {
+window.generateFairMatches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
     if (activePlayers.length < 4) {
-        alert("At least 4 'Active' players required to generate double fixtures!");
+        alert("At least 4 'Active' players required to generate fair matches!");
         return;
     }
 
-    let tempPlayers = JSON.parse(JSON.stringify(globalPlayers));
+    let totalActive = activePlayers.length;
+    let targetRounds = Math.max(3, Math.ceil((totalActive * 2) / 4));
+    let totalMatchesToGenerate = targetRounds * Math.floor(totalActive / 4);
+    totalMatchesToGenerate = Math.min(Math.max(totalMatchesToGenerate, 4), 16);
+
+    let tempPlayers = {};
+    activePlayers.forEach(p => {
+        tempPlayers[p.id] = { id: p.id, name: p.name, match_count: 0, last_played_match: -2 };
+    });
+
     let matchesObj = {};
 
-    for (let i = 1; i <= 10; i++) {
-        let pool = Object.values(tempPlayers).filter(p => p.is_active);
-        pool.sort((a, b) => (a.match_count + Math.random() * 0.49) - (b.match_count + Math.random() * 0.49));
+    for (let i = 1; i <= totalMatchesToGenerate; i++) {
+        let pool = Object.values(tempPlayers);
+        
+        pool.sort((a, b) => {
+            let restA = i - a.last_played_match;
+            let restB = i - b.last_played_match;
+            if (restA < 2 && restB >= 2) return 1;
+            if (restB < 2 && restA >= 2) return -1;
+            return (a.match_count + Math.random() * 0.3) - (b.match_count + Math.random() * 0.3);
+        });
 
         let selected = pool.slice(0, 4);
+        if (selected.length < 4) break;
+
         let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
 
         let combos = [
@@ -464,17 +470,23 @@ window.generate10Matches = function() {
         ];
 
         let bestCombo = combos[0];
-        let minHistoryWeight = Infinity;
+        let minScore = Infinity;
 
         combos.forEach(combo => {
-            let weight = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 3 + getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 3;
-            if (weight < minHistoryWeight) { minHistoryWeight = weight; bestCombo = combo; }
+            let pScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+            let oScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                         getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+            let totalW = pScore * 2 + oScore;
+            if (totalW < minScore) {
+                minScore = totalW;
+                bestCombo = combo;
+            }
         });
 
-        tempPlayers[bestCombo.tA[0].id].match_count++;
-        tempPlayers[bestCombo.tA[1].id].match_count++;
-        tempPlayers[bestCombo.tB[0].id].match_count++;
-        tempPlayers[bestCombo.tB[1].id].match_count++;
+        [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
+            tempPlayers[p.id].match_count++;
+            tempPlayers[p.id].last_played_match = i;
+        });
 
         matchesObj[`m_${i}`] = {
             id: `m_${i}`, gameNo: i,
@@ -485,6 +497,7 @@ window.generate10Matches = function() {
             status: 'pending', winner: '', scoreA: 0, scoreB: 0
         };
     }
+
     db.ref('badminton/current_schedule').set(matchesObj);
 };
 
@@ -495,7 +508,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT SKOR GAME
+// SUBMIT & EDIT LINEUP DENGAN AUTO-BALANCE
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -541,15 +554,106 @@ window.bukaEditSkorGame = function(matchId) {
     db.ref(`badminton/current_schedule/${matchId}`).update({ status: 'pending' });
 };
 
-// ==========================================
-// CANCEL / RESET CURRENT MATCH SESSION
-// ==========================================
+window.bukaEditLineupModal = function(matchId) {
+    const match = currentSchedule[matchId];
+    if (!match) return;
+
+    document.getElementById('edit-match-id-target').value = matchId;
+    const activePlayers = Object.values(globalPlayers).filter(p => p.is_active).sort((a,b)=> a.name.localeCompare(b.name));
+
+    ['select-edit-pA1', 'select-edit-pA2', 'select-edit-pB1', 'select-edit-pB2'].forEach(selId => {
+        const sel = document.getElementById(selId);
+        if (!sel) return;
+        let html = `<option value="">-- Select Player --</option>`;
+        activePlayers.forEach(p => {
+            html += `<option value="${p.id}">${p.name}</option>`;
+        });
+        sel.innerHTML = html;
+    });
+
+    if (match.idA1) document.getElementById('select-edit-pA1').value = match.idA1;
+    if (match.idA2) document.getElementById('select-edit-pA2').value = match.idA2;
+    if (match.idB1) document.getElementById('select-edit-pB1').value = match.idB1;
+    if (match.idB2) document.getElementById('select-edit-pB2').value = match.idB2;
+
+    document.getElementById('modal-edit-lineup').classList.remove('hidden');
+};
+
+window.closeEditLineupModal = function() {
+    document.getElementById('modal-edit-lineup').classList.add('hidden');
+};
+
+window.saveAndRebalanceLineup = function() {
+    const matchId = document.getElementById('edit-match-id-target').value;
+    const pA1Id = document.getElementById('select-edit-pA1').value;
+    const pA2Id = document.getElementById('select-edit-pA2').value;
+    const pB1Id = document.getElementById('select-edit-pB1').value;
+    const pB2Id = document.getElementById('select-edit-pB2').value;
+
+    if (!pA1Id || !pA2Id || !pB1Id || !pB2Id) {
+        alert("All 4 player slots must be filled!");
+        return;
+    }
+
+    if (new Set([pA1Id, pA2Id, pB1Id, pB2Id]).size !== 4) {
+        alert("Each player can only be selected once per match!");
+        return;
+    }
+
+    let match = currentSchedule[matchId];
+    if (!match) return;
+
+    match.idA1 = pA1Id; match.pA1 = globalPlayers[pA1Id]?.name || '';
+    match.idA2 = pA2Id; match.pA2 = globalPlayers[pA2Id]?.name || '';
+    match.idB1 = pB1Id; match.pB1 = globalPlayers[pB1Id]?.name || '';
+    match.idB2 = pB2Id; match.pB2 = globalPlayers[pB2Id]?.name || '';
+
+    let updates = {};
+    updates[`badminton/current_schedule/${matchId}`] = match;
+
+    // Auto-balance: Recalculate match counts and adjust subsequent matches if needed
+    let playerMatchCounts = {};
+    Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
+
+    const sortedMatches = Object.values(currentSchedule).sort((a,b)=> a.gameNo - b.gameNo);
+    sortedMatches.forEach(m => {
+        if (m.id === matchId) {
+            [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
+        } else if (m.gameNo > match.gameNo && m.status === 'pending') {
+            // Re-balance subsequent pending matches to favor resting players with lower counts
+            let activePool = Object.values(globalPlayers).filter(p => p.is_active);
+            activePool.sort((a, b) => (playerMatchCounts[a.id] || 0) - (playerMatchCounts[b.id] || 0));
+            
+            let selected = activePool.slice(0, 4);
+            if (selected.length >= 4) {
+                m.idA1 = selected[0].id; m.pA1 = selected[0].name;
+                m.idA2 = selected[1].id; m.pA2 = selected[1].name;
+                m.idB1 = selected[2].id; m.pB1 = selected[2].name;
+                m.idB2 = selected[3].id; m.pB2 = selected[3].name;
+
+                [selected[0].id, selected[1].id, selected[2].id, selected[3].id].forEach(id => {
+                    playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
+                });
+                updates[`badminton/current_schedule/${m.id}`] = m;
+            }
+        } else {
+            [m.idA1, m.idA2, m.idB1, m.idB2].forEach(id => {
+                if (id) playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
+            });
+        }
+    });
+
+    db.ref().update(updates).then(() => {
+        closeEditLineupModal();
+        alert("Match lineup updated and subsequent matches re-balanced successfully!");
+    });
+};
+
 window.batalSesiMatch = function() {
-    if (!confirm("Are you sure you want to cancel and clear the current generated matches?")) return;
+    if (!confirm("Are you sure you want to cancel and clear the current schedule?")) return;
 
     let updates = {};
     updates['badminton/current_schedule'] = null;
-
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
     });
@@ -574,7 +678,10 @@ function updateScheduleList() {
             <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner w-full">
                 <div class="flex justify-between items-center text-[9px] text-slate-500 font-bold mb-2 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
-                    <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="bukaEditLineupModal('${m.id}')" class="text-amber-400 hover:underline uppercase font-bold">✏️ Edit Lineup</button>
+                        <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
+                    </div>
                 </div>
                 
                 <div class="flex items-center justify-between text-xs font-bold gap-1 w-full">
@@ -604,13 +711,13 @@ function updateScheduleList() {
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Fair Rotation' button.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
             resetContainer.innerHTML = `
                 <button onclick="batalSesiMatch()" class="w-full bg-red-950/30 hover:bg-red-900/60 text-red-400 border border-red-900/30 font-bold text-xs py-2.5 px-3 rounded-xl transition duration-150 uppercase tracking-wider flex items-center justify-center gap-1.5">
-                    <span>🚫</span> Cancel / Reset Current Matches
+                    <span>🚫</span> Cancel / Reset Current Schedule
                 </button>
             `;
         } else {
@@ -651,10 +758,29 @@ window.simpanSesiHarian = function() {
             scoreA: valA, scoreB: valB,
             winner: valA >= valB ? 'A' : 'B'
         };
+
+        // Update partnership and opponent historical frequency
+        if (m.idA1 && m.idA2) {
+            const k = m.idA1 < m.idA2 ? `${m.idA1}_${m.idA2}` : `${m.idA2}_${m.idA1}`;
+            updates[`badminton/history/${k}/partner`] = (globalHistory[k]?.partner || 0) + 1;
+        }
+        if (m.idB1 && m.idB2) {
+            const k = m.idB1 < m.idB2 ? `${m.idB1}_${m.idB2}` : `${m.idB2}_${m.idB1}`;
+            updates[`badminton/history/${k}/partner`] = (globalHistory[k]?.partner || 0) + 1;
+        }
+        [m.idA1, m.idA2].forEach(aId => {
+            [m.idB1, m.idB2].forEach(bId => {
+                if (aId && bId) {
+                    const k = aId < bId ? `${aId}_${bId}` : `${bId}_${aId}`;
+                    updates[`badminton/history/${k}/opponent`] = (globalHistory[k]?.opponent || 0) + 1;
+                }
+            });
+        });
     });
 
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
+        updates[`badminton/players/${id}/is_active`] = false;
     });
 
     updates['badminton/current_schedule'] = null;
@@ -689,7 +815,7 @@ window.resetFilterPeriode = function() {
 };
 
 // ==========================================
-// ADMIN PANEL CRUD LOGIC (INSERT, EDIT, DELETE)
+// ADMIN PANEL CRUD LOGIC
 // ==========================================
 function populateAdminPlayerDropdowns() {
     const ids = ['admin-select-pA1', 'admin-select-pA2', 'admin-select-pB1', 'admin-select-pB2'];
@@ -705,7 +831,6 @@ function populateAdminPlayerDropdowns() {
         sel.innerHTML = opts;
     });
 
-    // Default Tanggal Hari Ini untuk Form Insert
     const dateInput = document.getElementById('admin-match-date');
     if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().split('T')[0];
@@ -718,8 +843,6 @@ function renderAdminMatchesList() {
     if (!container) return;
 
     const allLogs = Object.entries(matchHistoryLogs);
-    
-    // Filter berdasarkan Periode YYYY-MM yang dipilih
     const filteredEntries = allLogs.filter(([id, log]) => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -807,7 +930,6 @@ window.mulaiEditAdmin = function(logId) {
     if (!log) return;
 
     editingMatchLogId = logId;
-    
     document.getElementById('form-admin-title').innerText = "✏️ Edit Match Entry";
     document.getElementById('btn-admin-submit').innerText = "💾 Update Match Data";
     document.getElementById('btn-admin-cancel-edit').classList.remove('hidden');
@@ -852,7 +974,7 @@ window.hapusAdminMatch = function(logId) {
 };
 
 // ==========================================
-// HITUNGAN WIN/LOSE LEADERBOARD DINAMIS
+// LEADERBOARD & MODALS
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
@@ -861,7 +983,6 @@ function updateLeaderboardList() {
     if (!tbody || !matchesContainer) return;
 
     const allLogs = Object.values(matchHistoryLogs);
-    
     const filteredLogs = allLogs.filter(log => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -869,7 +990,6 @@ function updateLeaderboardList() {
     });
 
     let playerStatsMap = {};
-
     if (selectedPeriod === 'ALL') {
         Object.values(globalPlayers).forEach(p => {
             playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
@@ -908,25 +1028,23 @@ function updateLeaderboardList() {
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     let lbHtml = '';
-    if (playersList.length > 0) {
-        playersList.forEach((p, idx) => {
-            lbHtml += `
-                <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
-                    <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
-                    <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
-                        <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
-                            ${p.name}
-                        </span>
-                    </td>
-                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
-                    <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
-                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
-                </tr>
-            `;
-        });
-    }
+    playersList.forEach((p, idx) => {
+        lbHtml += `
+            <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
+                <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
+                <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
+                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
+                        ${p.name}
+                    </span>
+                </td>
+                <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
+                <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
+                <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
+            </tr>
+        `;
+    });
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available for this month/year.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available.</td></tr>`;
 
     const countElem = document.getElementById('total-matches-count');
     if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
@@ -956,23 +1074,18 @@ function updateLeaderboardList() {
     matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-500 text-xs text-center py-6 italic">No match history available.</p>`;
 }
 
-// ==========================================
-// MODAL POPUP OPERATIONAL
-// ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
     const title = document.getElementById('modal-player-name');
     const content = document.getElementById('modal-history-content');
     
     if (!modal || !title || !content) return;
-
     title.innerText = playerName;
 
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
         const logPeriod = extractIsoPeriod(log);
         const matchPeriod = (selectedPeriod === 'ALL' || logPeriod === selectedPeriod);
-
         return isPlayerInMatch && matchPeriod;
     });
 
@@ -981,39 +1094,34 @@ window.openHistoryModal = function(playerId, playerName) {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
-
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
         const isWinner = (isTeamA && isTeamAWin) || (!isTeamA && !isTeamAWin);
         
         const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
         const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
-        
         const myTeamScore = isTeamA ? valA : valB;
         const opponentScore = isTeamA ? valB : valA;
-        const finalScoreStr = `${myTeamScore} - ${opponentScore}`;
         
-        const matchDate = log.date || '';
-
         modalRowsHtml += `
             <div class="bg-[#0B0F17] p-2 rounded-xl border border-slate-800/80 space-y-1">
                 <div class="flex justify-between items-center text-[10px]">
                     <span class="font-black px-1.5 py-0.5 rounded text-[8px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
                         ${isWinner ? 'WIN' : 'LOSE'}
                     </span>
-                    <span class="text-[9px] text-slate-500 font-semibold">${matchDate}</span>
+                    <span class="text-[9px] text-slate-500 font-semibold">${log.date || ''}</span>
                 </div>
                 <div class="flex justify-between items-center text-[10px] gap-1">
                     <div class="text-slate-300 truncate flex-1 min-w-0">
                         <span class="text-slate-500">w/</span> <strong class="text-slate-200">${partnerName}</strong> 
                         <span class="text-slate-600 font-bold">vs</span> <span class="text-slate-400">${opponentString}</span>
                     </div>
-                    <span class="text-white font-black shrink-0 bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${finalScoreStr}</span>
+                    <span class="text-white font-black shrink-0 bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${myTeamScore} - ${opponentScore}</span>
                 </div>
             </div>
         `;
     });
 
-    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No match history available for this period.</div>`;
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No match history available.</div>`;
     modal.classList.remove('hidden');
 };
 
