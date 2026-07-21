@@ -1,4 +1,6 @@
-// Firebase Configuration
+// ==========================================
+// FIREBASE CONFIGURATION & INITIALIZATION
+// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyBupNaZK23M3ErtojxwYRdnKPrwjou1ERc",
   authDomain: "badminton-5cef1.firebaseapp.com",
@@ -9,7 +11,6 @@ const firebaseConfig = {
   appId: "1:857732838646:web:dd037447f2820cab1828d7"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -22,8 +23,11 @@ let currentSchedule = {};
 let matchHistoryLogs = {}; 
 let currentActiveTab = 'matchmaking';
 let isLayoutRendered = false;
+let selectedMonthFilter = 'ALL'; // Dynamic period filter ('YYYY-MM' or 'ALL')
 
-// Global Tab Switcher Function
+// ==========================================
+// GLOBAL TAB SWITCHER
+// ==========================================
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
     isLayoutRendered = false; 
@@ -37,9 +41,9 @@ window.switchTab = function(tabName) {
     Object.keys(tabs).forEach(key => {
         if (!tabs[key]) return;
         if (key === tabName) {
-            tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
+            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
         } else {
-            tabs[key].className = "flex-1 text-center py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
+            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
     renderTabStructure();
@@ -67,8 +71,23 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
-            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
-                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest mb-4">🏆 Club Performance Leaderboard</h2>
+            <!-- FILTER PERIODE BULAN & TAHUN -->
+            <div class="bg-[#1E2638] p-4 rounded-2xl border border-slate-800/50 shadow-xl flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📅</span>
+                    <div>
+                        <h3 class="text-xs font-bold text-white">Filter Period</h3>
+                        <p class="text-[10px] text-slate-400">Select month and year</p>
+                    </div>
+                </div>
+                <select id="filter-month-year" onchange="changePeriodFilter(this.value)" class="bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-[#FF5722]">
+                    <option value="ALL">All Time (Overall)</option>
+                </select>
+            </div>
+
+            <!-- LEADERBOARD TABLE -->
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
+                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm text-slate-300">
                         <thead class="text-xs uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
@@ -85,6 +104,16 @@ function renderTabStructure() {
                 </div>
             </div>
 
+            <!-- ALL MATCHES HISTORY LOG -->
+            <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-800/60 pb-3">
+                    <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ All Matches History</h2>
+                    <span id="total-matches-count" class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
+                </div>
+                <div id="container-all-matches-list" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scroll-smooth"></div>
+            </div>
+
+            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN (SISTEM KLIK) -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-4">
                 <div class="bg-[#1E2638] w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-5 overflow-hidden">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
@@ -94,11 +123,11 @@ function renderTabStructure() {
                         </div>
                         <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800">&times;</button>
                     </div>
-                    <div id="modal-history-content" class="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        </div>
+                    <div id="modal-history-content" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
                 </div>
             </div>
         `;
+        populateFilterDropdown();
     } else {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-5 rounded-2xl border border-slate-800/50 shadow-xl">
@@ -155,7 +184,10 @@ db.ref('badminton/current_schedule').on('value', (snapshot) => {
 
 db.ref('badminton/match_history').on('value', (snapshot) => {
     matchHistoryLogs = snapshot.val() || {};
-    if (currentActiveTab === 'leaderboard') updateLeaderboardList();
+    if (currentActiveTab === 'leaderboard') {
+        populateFilterDropdown();
+        updateLeaderboardList();
+    }
 });
 
 // ==========================================
@@ -316,7 +348,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT SCORE (DENGAN INJEKSI LOG MATCH HISTORY)
+// SUBMIT SCORE MATCH JADWAL HARIAN
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -331,7 +363,6 @@ window.submitSkorGame = function(matchId) {
     }
 
     const timPemenang = valA >= valB ? 'A' : 'B';
-    const hariIni = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
     let updates = {};
     
     updates[`badminton/current_schedule/${matchId}/status`] = 'done';
@@ -354,16 +385,6 @@ window.submitSkorGame = function(matchId) {
             const keyB = match.idB1 < match.idB2 ? `${match.idB1}_${match.idB2}` : `${match.idB2}_${match.idB1}`;
             updates[`badminton/history/${keyB}/partner`] = (globalHistory[keyB]?.partner || 0) + 1;
         }
-
-        const logId = 'log_' + Date.now() + '_' + matchId;
-        updates[`badminton/match_history/${logId}`] = {
-            date: hariIni,
-            pA1: match.pA1, idA1: match.idA1,
-            pA2: match.pA2, idA2: match.idA2,
-            pB1: match.pB1, idB1: match.idB1,
-            pB2: match.pB2, idB2: match.idB2,
-            scoreA: valA, scoreB: valB, winner: timPemenang
-        };
     }
 
     db.ref().update(updates);
@@ -430,30 +451,67 @@ function updateScheduleList() {
 }
 
 // ==========================================
-// SESSION END & STATS UPDATE ARCHIVE
+// SAVE SESSION & ACCUMULATE POINTS (FIXED LOGIC)
 // ==========================================
 window.simpanSesiHarian = function() {
-    if (!confirm("End today's session? All saved match points will be officially injected into the Leaderboard!")) return;
+    if (!confirm("End today's session? All saved match points will be officially injected into the Leaderboard & History!")) return;
 
     let updates = {};
     const matches = Object.values(currentSchedule);
+    const now = new Date();
+    
+    // Trik mendapatkan format YYYY-MM-DD sesuai zona waktu lokal
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const isoDateStr = `${year}-${month}-${day}`;
+    
+    const displayDateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
+
+    let sessionStats = {};
+    Object.keys(globalPlayers).forEach(id => { sessionStats[id] = { win: 0, lose: 0 }; });
 
     matches.forEach(m => {
-        if (m.status !== 'done') return; 
-        if (m.scoreA > m.scoreB) {
-            updates[`badminton/players/${m.idA1}/win`] = (globalPlayers[m.idA1]?.win || 0) + 1;
-            updates[`badminton/players/${m.idA2}/win`] = (globalPlayers[m.idA2]?.win || 0) + 1;
-            updates[`badminton/players/${m.idB1}/lose`] = (globalPlayers[m.idB1]?.lose || 0) + 1;
-            updates[`badminton/players/${m.idB2}/lose`] = (globalPlayers[m.idB2]?.lose || 0) + 1;
-        } else if (m.scoreB > m.scoreA) {
-            updates[`badminton/players/${m.idB1}/win`] = (globalPlayers[m.idB1]?.win || 0) + 1;
-            updates[`badminton/players/${m.idB2}/win`] = (globalPlayers[m.idB2]?.win || 0) + 1;
-            updates[`badminton/players/${m.idA1}/lose`] = (globalPlayers[m.idA1]?.lose || 0) + 1;
-            updates[`badminton/players/${m.idA2}/lose`] = (globalPlayers[m.idA2]?.lose || 0) + 1;
+        if (m.status !== 'done') return;
+
+        const valA = parseInt(m.scoreA || 0);
+        const valB = parseInt(m.scoreB || 0);
+
+        // Injeksikan log match baru ke node badminton/match_history
+        const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        updates[`badminton/match_history/${logId}`] = {
+            date: displayDateStr,
+            isoDate: isoDateStr,
+            pA1: m.pA1, idA1: m.idA1,
+            pA2: m.pA2, idA2: m.idA2,
+            pB1: m.pB1, idB1: m.idB1,
+            pB2: m.pB2, idB2: m.idB2,
+            scoreA: valA, scoreB: valB,
+            winner: valA >= valB ? 'A' : 'B'
+        };
+
+        if (valA > valB) {
+            if (m.idA1 && sessionStats[m.idA1]) sessionStats[m.idA1].win += 1;
+            if (m.idA2 && sessionStats[m.idA2]) sessionStats[m.idA2].win += 1;
+            if (m.idB1 && sessionStats[m.idB1]) sessionStats[m.idB1].lose += 1;
+            if (m.idB2 && sessionStats[m.idB2]) sessionStats[m.idB2].lose += 1;
+        } else if (valB > valA) {
+            if (m.idB1 && sessionStats[m.idB1]) sessionStats[m.idB1].win += 1;
+            if (m.idB2 && sessionStats[m.idB2]) sessionStats[m.idB2].win += 1;
+            if (m.idA1 && sessionStats[m.idA1]) sessionStats[m.idA1].lose += 1;
+            if (m.idA2 && sessionStats[m.idA2]) sessionStats[m.idA2].lose += 1;
         }
     });
 
-    Object.keys(globalPlayers).forEach(id => { updates[`badminton/players/${id}/match_count`] = 0; });
+    // Tambahkan akumulasi sesi hari ini ke poin lama di Firebase
+    Object.keys(globalPlayers).forEach(id => {
+        const currentWin = globalPlayers[id]?.win || 0;
+        const currentLose = globalPlayers[id]?.lose || 0;
+        updates[`badminton/players/${id}/win`] = currentWin + (sessionStats[id]?.win || 0);
+        updates[`badminton/players/${id}/lose`] = currentLose + (sessionStats[id]?.lose || 0);
+        updates[`badminton/players/${id}/match_count`] = 0;
+    });
+
     updates['badminton/current_schedule'] = null;
 
     db.ref().update(updates).then(() => {
@@ -463,44 +521,131 @@ window.simpanSesiHarian = function() {
 };
 
 // ==========================================
-// TAB: LEADERBOARD VIEW WITH INTERACTIVE CLICK MODAL
+// FILTER PERIODE BULAN & TAHUN
+// ==========================================
+function populateFilterDropdown() {
+    const select = document.getElementById('filter-month-year');
+    if (!select) return;
+
+    const monthsMap = new Set();
+    Object.values(matchHistoryLogs).forEach(log => {
+        if (log.isoDate) {
+            monthsMap.add(log.isoDate.substring(0, 7)); // YYYY-MM
+        }
+    });
+
+    const sortedMonths = Array.from(monthsMap).sort().reverse();
+
+    let optionsHtml = `<option value="ALL" ${selectedMonthFilter === 'ALL' ? 'selected' : ''}>All Time (Overall)</option>`;
+    sortedMonths.forEach(ym => {
+        const [year, month] = ym.split('-');
+        const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const monthName = dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        optionsHtml += `<option value="${ym}" ${selectedMonthFilter === ym ? 'selected' : ''}>${monthName}</option>`;
+    });
+
+    select.innerHTML = optionsHtml;
+}
+
+window.changePeriodFilter = function(filterValue) {
+    selectedMonthFilter = filterValue;
+    updateLeaderboardList();
+};
+
+// ==========================================
+// UPDATE LEADERBOARD & ALL MATCHES LOG
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
-    if (!tbody) return;
+    const matchesContainer = document.getElementById('container-all-matches-list');
+    if (!tbody || !matchesContainer) return;
 
-    let html = '';
-    const playersList = Object.values(globalPlayers).map(p => {
-        const total = (p.win || 0) + (p.lose || 0);
+    const allLogs = Object.values(matchHistoryLogs);
+    const filteredLogs = allLogs.filter(log => {
+        if (selectedMonthFilter === 'ALL') return true;
+        return log.isoDate && log.isoDate.startsWith(selectedMonthFilter);
+    });
+
+    let playerStatsMap = {};
+    Object.values(globalPlayers).forEach(p => {
+        playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
+    });
+
+    if (selectedMonthFilter === 'ALL') {
+        Object.values(globalPlayers).forEach(p => {
+            playerStatsMap[p.id].win = p.win || 0;
+            playerStatsMap[p.id].lose = p.lose || 0;
+        });
+    } else {
+        filteredLogs.forEach(log => {
+            const winTeam = log.winner;
+            if (winTeam === 'A') {
+                if (playerStatsMap[log.idA1]) playerStatsMap[log.idA1].win += 1;
+                if (playerStatsMap[log.idA2]) playerStatsMap[log.idA2].win += 1;
+                if (playerStatsMap[log.idB1]) playerStatsMap[log.idB1].lose += 1;
+                if (playerStatsMap[log.idB2]) playerStatsMap[log.idB2].lose += 1;
+            } else {
+                if (playerStatsMap[log.idB1]) playerStatsMap[log.idB1].win += 1;
+                if (playerStatsMap[log.idB2]) playerStatsMap[log.idB2].win += 1;
+                if (playerStatsMap[log.idA1]) playerStatsMap[log.idA1].lose += 1;
+                if (playerStatsMap[log.idA2]) playerStatsMap[log.idA2].lose += 1;
+            }
+        });
+    }
+
+    const playersList = Object.values(playerStatsMap).map(p => {
+        const total = p.win + p.lose;
         const rate = total > 0 ? Math.round((p.win / total) * 100) : 0;
         return { ...p, total, rate };
     });
 
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
+    let lbHtml = '';
     playersList.forEach((p, idx) => {
-        html += `
+        lbHtml += `
             <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
                 <td class="py-3 px-2 text-center text-slate-500">${idx + 1}</td>
-                
                 <td class="py-3 px-2 text-white">
                     <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold">
                         ${p.name}
                     </span>
                 </td>
-                
-                <td class="py-3 px-2 text-center text-[#FF5722]">${p.win || 0}</td>
-                <td class="py-3 px-2 text-center text-slate-400">${p.lose || 0}</td>
+                <td class="py-3 px-2 text-center text-[#FF5722]">${p.win}</td>
+                <td class="py-3 px-2 text-center text-slate-400">${p.lose}</td>
                 <td class="py-3 px-2 text-center text-[#FF5722] font-extrabold">${p.rate}%</td>
             </tr>
         `;
     });
 
-    tbody.innerHTML = html || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical score metrics available yet.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical score metrics available for this period.</td></tr>`;
+
+    document.getElementById('total-matches-count').innerText = `${filteredLogs.length} Matches`;
+    
+    let matchesHtml = '';
+    filteredLogs.slice().reverse().forEach(log => {
+        matchesHtml += `
+            <div class="bg-[#0B0F17] p-3 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2 text-xs">
+                <div class="w-[40%] truncate ${log.winner === 'A' ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+                    ${log.pA1} & ${log.pA2}
+                </div>
+                <div class="w-[20%] text-center shrink-0">
+                    <span class="bg-[#1E2638] px-2 py-0.5 rounded text-white font-black text-xs border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
+                    <div class="text-[9px] text-slate-600 mt-0.5">${log.date}</div>
+                </div>
+                <div class="w-[40%] text-right truncate ${log.winner === 'B' ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+                    ${log.pB1} & ${log.pB2}
+                </div>
+            </div>
+        `;
+    });
+
+    matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-600 text-xs text-center py-6">No matches recorded for this period.</p>`;
 }
 
 // ==========================================
-// LOGIK OPERASIONAL MODAL (SISTEM KLIK)
+// MODAL POPUP OPERATIONAL (SISTEM KLIK)
 // ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
@@ -511,13 +656,13 @@ window.openHistoryModal = function(playerId, playerName) {
 
     title.innerText = playerName;
 
-    // Filter log pertandingan berdasarkan Player ID yang diklik
-    const logsArray = Object.values(matchHistoryLogs).filter(log => 
-        log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId
-    );
+    const logsArray = Object.values(matchHistoryLogs).filter(log => {
+        const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
+        if (selectedMonthFilter === 'ALL') return isPlayerInMatch;
+        return isPlayerInMatch && log.isoDate && log.isoDate.startsWith(selectedMonthFilter);
+    });
 
     let modalRowsHtml = '';
-    // Ambil maksimal 8 riwayat pertandingan terakhir agar tidak terlalu panjang ke bawah
     logsArray.slice(-8).reverse().forEach(log => {
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
         const isWinner = (isTeamA && log.winner === 'A') || (!isTeamA && log.winner === 'B');
@@ -540,7 +685,7 @@ window.openHistoryModal = function(playerId, playerName) {
         `;
     });
 
-    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No historical matches registered yet for this member.</div>`;
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No historical matches registered for this member in selected period.</div>`;
     modal.classList.remove('hidden');
 };
 
