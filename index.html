@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Badminton Matchmaker & Leaderboard</title>
 
-    <!-- META TAG ANTI-CACHE -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <!-- Tailwind CSS (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -18,13 +16,10 @@
         }
     </script>
 
-    <!-- Firebase SDK (v8) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-    <!-- CUSTOM THEME OVERRIDES -->
     <style>
-        /* Light Mode Styles Override */
         html:not(.dark) body {
             background-color: #F1F5F9;
             color: #1E293B;
@@ -67,7 +62,6 @@
 </head>
 <body class="bg-[#0B0F17] text-slate-200 min-h-screen font-sans antialiased pb-10 transition-colors duration-200">
 
-    <!-- HEADER / NAVIGATION BAR -->
     <header class="bg-[#1E2638] border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 shrink-0">
@@ -75,9 +69,7 @@
                 <h1 class="font-black text-xs sm:text-sm tracking-wide text-white uppercase">Badminton <span class="text-[#FF5722]">Club</span></h1>
             </div>
             
-            <!-- RIGHT ACTIONS: TAB SWITCHER & THEME TOGGLE -->
             <div class="flex items-center gap-2">
-                <!-- TAB SWITCHER -->
                 <div class="flex bg-[#0B0F17] p-1 rounded-xl border border-slate-800 w-48 sm:w-56">
                     <button id="btn-tab-matchmaking" onclick="switchTab('matchmaking')" class="flex-1 text-center py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10">
                         Matches
@@ -90,20 +82,16 @@
                     </button>
                 </div>
 
-                <!-- LIGHT / NIGHT MODE TOGGLE BUTTON -->
-                <button onclick="toggleTheme()" id="btn-theme-toggle" title="Toggle Light/Dark Mode" class="bg-[#0B0F17] hover:bg-slate-800 p-2 rounded-xl border border-slate-800 text-sm flex items-center justify-center transition">
+                <button onclick="toggleTheme()" id="btn-theme-toggle" title="Toggle Light/Dark Mode" class="bg-[#0B0F17] hover:bg-slate-800 p-2 rounded-xl border border-slate-800 text-sm flex items-center justify-center transition shrink-0">
                     🌙
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- MAIN APP CONTENT CONTAINER -->
     <main id="app-content" class="max-w-md mx-auto px-4 pt-4 space-y-4">
-        <!-- Dynamic content injected by app.js -->
-    </main>
+        </main>
 
-    <!-- SCRIPT APPLICATION DENGAN CACHE BUSTING VERSIONING -->
-    <script src="app.js?v=1.0.4"></script>
+    <script src="app.js?v=1.0.5"></script>
 </body>
 </html>
