@@ -399,7 +399,7 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: ATTENDANCE TOGGLE (LOCK UNCHECK WHEN SCHEDULED & AUTO-BALANCE)
+// TAB: ATTENDANCE TOGGLE
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
@@ -423,7 +423,6 @@ function updateAbsenHariIniList() {
     if (!container) return;
     let html = '';
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
-    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
 
     sorted.forEach(p => {
         html += `
@@ -440,8 +439,74 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
+// HELPER: SMART MATCHMAKING (MENCEGAH MONOTON)
+// ==========================================
+function getHistoryScore(id1, id2, tipe) {
+    const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
+    if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
+    return 0;
+}
+
+function getCombinations(array, k) {
+    let results = [];
+    function run(level, start) {
+        if(level.length === k) {
+            results.push([...level]);
+            return;
+        }
+        for(let i = start; i < array.length; i++) {
+            level.push(array[i]);
+            run(level, i + 1);
+            level.pop();
+        }
+    }
+    run([], 0);
+    return results;
+}
+
+function findBestMatchup(pool) {
+    if (pool.length < 4) return null;
+    
+    let minMatchCount = pool[0].match_count;
+    let candidatePool = pool.slice(0, Math.min(pool.length, 10));
+    let quadCombos = getCombinations(candidatePool, 4);
+
+    let bestCombo = null;
+    let minScore = Infinity;
+
+    quadCombos.forEach(quad => {
+        let p1 = quad[0], p2 = quad[1], p3 = quad[2], p4 = quad[3];
+        let teamConfigs = [
+            { tA: [p1, p2], tB: [p3, p4] },
+            { tA: [p1, p3], tB: [p2, p4] },
+            { tA: [p1, p4], tB: [p2, p3] }
+        ];
+
+        let matchCountPenalty = quad.reduce((sum, p) => sum + ((p.match_count - minMatchCount) * 25), 0);
+
+        teamConfigs.forEach(combo => {
+            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
+                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+            
+            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+
+            let totalWeight = (partnerScore * 15) + (opponentScore * 5) + matchCountPenalty + (Math.random() * 0.5);
+
+            if (totalWeight < minScore) {
+                minScore = totalWeight;
+                bestCombo = combo;
+            }
+        });
+    });
+
+    return bestCombo;
+}
+
+// ==========================================
 // FULL ROTATION FAIR MATCHES GENERATOR 
-// (Setiap orang pasti bisa saling berpasangan & melawan siapa saja - Tanpa Pot)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -498,36 +563,8 @@ window.generateFairMatches = function(preserveDone = true) {
             return Math.random() - 0.5;
         });
 
-        let selected = pool.slice(0, 4);
-        if (selected.length < 4) break;
-
-        let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
-
-        let possibleCombos = [
-            { tA: [p1, p2], tB: [p3, p4] },
-            { tA: [p1, p3], tB: [p2, p4] },
-            { tA: [p1, p4], tB: [p2, p3] }
-        ];
-
-        let bestCombo = possibleCombos[0];
-        let minScore = Infinity;
-
-        possibleCombos.forEach(combo => {
-            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-            
-            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-
-            let totalWeight = (partnerScore * 5) + opponentScore + (Math.random() * 0.5);
-
-            if (totalWeight < minScore) {
-                minScore = totalWeight;
-                bestCombo = combo;
-            }
-        });
+        let bestCombo = findBestMatchup(pool);
+        if (!bestCombo) break;
 
         [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
             tempPlayers[p.id].match_count++;
@@ -554,12 +591,6 @@ window.generateFairMatches = function(preserveDone = true) {
 
 function autoBalanceCurrentSchedule() {
     generateFairMatches(true);
-}
-
-function getHistoryScore(id1, id2, tipe) {
-    const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
-    if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
-    return 0;
 }
 
 // ==========================================
@@ -638,7 +669,6 @@ window.closeEditLineupModal = function() {
     document.getElementById('modal-edit-lineup').classList.add('hidden');
 };
 
-// BALANCING SYSTEM PADA EDIT LINEUP
 window.saveAndRebalanceLineup = function() {
     const matchId = document.getElementById('edit-match-id-target').value;
     const pA1Id = document.getElementById('select-edit-pA1').value;
@@ -667,7 +697,6 @@ window.saveAndRebalanceLineup = function() {
     let updates = {};
     updates[`badminton/current_schedule/${matchId}`] = match;
 
-    // Hitung ulang akumulasi jam terbang (match_count) untuk re-balancing match berikutnya
     let playerMatchCounts = {};
     Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
 
@@ -676,40 +705,21 @@ window.saveAndRebalanceLineup = function() {
         if (m.id === matchId) {
             [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
         } else if (m.gameNo > match.gameNo && m.status === 'pending') {
-            // Re-balancing otomatis untuk match setelahnya agar jam terbang tetap adil
             let activePool = Object.values(globalPlayers).filter(p => p.is_active);
-            activePool.sort((a, b) => {
-                let countA = playerMatchCounts[a.id] || 0;
-                let countB = playerMatchCounts[b.id] || 0;
-                if (countA !== countB) return countA - countB;
+            let tempPool = activePool.map(p => ({
+                id: p.id, 
+                name: p.name, 
+                match_count: playerMatchCounts[p.id] || 0
+            }));
+
+            tempPool.sort((a, b) => {
+                if (a.match_count !== b.match_count) return a.match_count - b.match_count;
                 return Math.random() - 0.5;
             });
             
-            let selected = activePool.slice(0, 4);
-            if (selected.length >= 4) {
-                // Terapkan sistem kombinasi cerdas untuk match yang di-rebalance
-                let possibleCombos = [
-                    { tA: [selected[0], selected[1]], tB: [selected[2], selected[3]] },
-                    { tA: [selected[0], selected[2]], tB: [selected[1], selected[3]] },
-                    { tA: [selected[0], selected[3]], tB: [selected[1], selected[2]] }
-                ];
-                let bestCombo = possibleCombos[0];
-                let minScore = Infinity;
+            let bestCombo = findBestMatchup(tempPool);
 
-                possibleCombos.forEach(combo => {
-                    let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                                       getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-                    let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                        getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-                    let totalWeight = (partnerScore * 5) + opponentScore;
-                    if (totalWeight < minScore) {
-                        minScore = totalWeight;
-                        bestCombo = combo;
-                    }
-                });
-
+            if (bestCombo) {
                 m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
                 m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
                 m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
