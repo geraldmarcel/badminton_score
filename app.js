@@ -397,13 +397,12 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// AUTO-GENERATE & SMOOTH REBALANCE LOGIC
+// CHECK-IN HANDLER
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus }).then(() => {
-        // Otomatis menata ulang match secara halus tanpa tombol generate jika ada jadwal aktif
         const activeCount = Object.values(globalPlayers).filter(p => p.is_active || p.id === id).length;
         if (activeCount >= 4) {
             generateFairMatches(true);
@@ -432,7 +431,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// ROTATION ALGORITHM: ATURAN ISTIRAHAT MAX 1-3 GAME
+// ROTATION ALGORITHM: PASANGAN & LAWAN BARU (DYNAMIC)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -449,6 +448,18 @@ window.generateFairMatches = function(preserveDone = true) {
     });
 
     let existingDoneMatches = {};
+    let sessionPartnerHistory = {};
+    let sessionOpponentHistory = {};
+
+    const addSessionHistory = (p1, p2, type) => {
+        const key = p1 < p2 ? `${p1}_${p2}` : `${p2}_${p1}`;
+        if (type === 'partner') {
+            sessionPartnerHistory[key] = (sessionPartnerHistory[key] || 0) + 1;
+        } else {
+            sessionOpponentHistory[key] = (sessionOpponentHistory[key] || 0) + 1;
+        }
+    };
+
     if (preserveDone && currentSchedule) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
@@ -458,6 +469,14 @@ window.generateFairMatches = function(preserveDone = true) {
                         tempPlayers[pId].match_count++;
                         tempPlayers[pId].last_played_match = m.gameNo;
                     }
+                });
+                
+                if (m.idA1 && m.idA2) addSessionHistory(m.idA1, m.idA2, 'partner');
+                if (m.idB1 && m.idB2) addSessionHistory(m.idB1, m.idB2, 'partner');
+                [m.idA1, m.idA2].forEach(aId => {
+                    [m.idB1, m.idB2].forEach(bId => {
+                        if (aId && bId) addSessionHistory(aId, bId, 'opponent');
+                    });
                 });
             }
         });
@@ -472,12 +491,11 @@ window.generateFairMatches = function(preserveDone = true) {
     for (let i = startingGameNo; i <= targetTotalMatches; i++) {
         let pool = Object.values(tempPlayers);
         
-        // Sorting berdasarkan waktu istirahat & akumulasi match (Aturan Istirahat Max 1-3 Game)
+        // Urutkan berdasarkan batas istirahat 1-3 game & jumlah main
         pool.sort((a, b) => {
             let restA = i - a.last_played_match;
             let restB = i - b.last_played_match;
             
-            // Jika pemain sudah rehat >= 2-3 game, beri prioritas penuh!
             if (restA >= 2 && restB < 2) return -1;
             if (restB >= 2 && restA < 2) return 1;
 
@@ -499,23 +517,34 @@ window.generateFairMatches = function(preserveDone = true) {
         ];
 
         let bestCombo = possibleCombos[0];
-        let minScore = Infinity;
+        let minPenalty = Infinity;
 
+        // Cari kombinasi dengan penalti terkecil (utamakan partner baru -> opponent baru)
         possibleCombos.forEach(combo => {
-            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+            let partnerTimes = 
+                getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner', sessionPartnerHistory) + 
+                getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner', sessionPartnerHistory);
             
-            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+            let opponentTimes = 
+                getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent', sessionOpponentHistory) + 
+                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent', sessionOpponentHistory) +
+                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent', sessionOpponentHistory) + 
+                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent', sessionOpponentHistory);
 
-            let totalWeight = (partnerScore * 6) + opponentScore + (Math.random() * 0.3);
+            let penaltyScore = (partnerTimes * 1000) + (opponentTimes * 10) + (Math.random() * 0.5);
 
-            if (totalWeight < minScore) {
-                minScore = totalWeight;
+            if (penaltyScore < minPenalty) {
+                minPenalty = penaltyScore;
                 bestCombo = combo;
             }
+        });
+
+        addSessionHistory(bestCombo.tA[0].id, bestCombo.tA[1].id, 'partner');
+        addSessionHistory(bestCombo.tB[0].id, bestCombo.tB[1].id, 'partner');
+        [bestCombo.tA[0].id, bestCombo.tA[1].id].forEach(aId => {
+            [bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(bId => {
+                addSessionHistory(aId, bId, 'opponent');
+            });
         });
 
         [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
@@ -541,10 +570,15 @@ window.generateFairMatches = function(preserveDone = true) {
     db.ref('badminton/current_schedule').set(finalSchedule);
 };
 
-function getHistoryScore(id1, id2, tipe) {
+function getHistoryScore(id1, id2, tipe, sessionHistory = {}) {
     const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
-    if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
-    return 0;
+    let globalCount = 0;
+    if (globalHistory[key] && globalHistory[key][tipe]) {
+        globalCount = globalHistory[key][tipe];
+    }
+    let sessionCount = sessionHistory[key] || 0;
+    
+    return globalCount + sessionCount;
 }
 
 // ==========================================
@@ -653,7 +687,7 @@ window.saveAndRebalanceLineup = function() {
 
     db.ref().update(updates).then(() => {
         closeEditLineupModal();
-        generateFairMatches(true); // Rebalance smooth tanpa merusak match done
+        generateFairMatches(true);
     });
 };
 
@@ -670,7 +704,7 @@ window.batalSesiMatch = function() {
 };
 
 // ==========================================
-// TAMPILAN MATCH SCHEDULE (DONE DITAMPILKAN TETAP TRANSPARAN)
+// SCHEDULE DISPLAY (MATCH DONE TETAP DITAMPILKAN TRANSPARAN)
 // ==========================================
 function updateScheduleList() {
     const container = document.getElementById('container-schedule-list');
