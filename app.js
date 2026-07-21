@@ -646,7 +646,7 @@ function updateLeaderboardList() {
         });
     }
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">Tidak ada data pertandingan untuk bulan/tahun ini.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available for this month/year.</td></tr>`;
 
     // Render Total Match Count
     const countElem = document.getElementById('total-matches-count');
@@ -668,18 +668,18 @@ function updateLeaderboardList() {
                     <span class="bg-[#1E2638] px-1.5 py-0.5 rounded text-white font-black text-[11px] border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
                     <div class="text-[8px] text-slate-600 mt-0.5">${log.date || ''}</div>
                 </div>
-                <div class="w-[38%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
+                <div class="w-[38%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722]' : 'text-slate-400'}">
                     ${log.pB1} & ${log.pB2}
                 </div>
             </div>
         `;
     });
 
-    matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-500 text-xs text-center py-6 italic">Tidak ada riwayat pertandingan.</p>`;
+    matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-500 text-xs text-center py-6 italic">No match history available.</p>`;
 }
 
 // ==========================================
-// MODAL POPUP OPERATIONAL
+// MODAL POPUP OPERATIONAL (WITH DATE & CORRECT SCORE PERSPECTIVE)
 // ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
@@ -690,6 +690,7 @@ window.openHistoryModal = function(playerId, playerName) {
 
     title.innerText = playerName;
 
+    // Filter log berdasarkan ID pemain DAN periode filter yang aktif
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
         const logPeriod = extractIsoPeriod(log);
@@ -699,7 +700,7 @@ window.openHistoryModal = function(playerId, playerName) {
     });
 
     let modalRowsHtml = '';
-    logsArray.slice(-8).reverse().forEach(log => {
+    logsArray.slice(-15).reverse().forEach(log => {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
@@ -707,24 +708,37 @@ window.openHistoryModal = function(playerId, playerName) {
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
         const isWinner = (isTeamA && isTeamAWin) || (!isTeamA && !isTeamAWin);
         
+        // Partner & Opponent
         const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
         const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
-        const finalScoreStr = `${log.scoreA} - ${log.scoreB}`;
+        
+        // Penyesuaian perspektif skor (Skor tim pemain selalu di kiri)
+        const myTeamScore = isTeamA ? valA : valB;
+        const opponentScore = isTeamA ? valB : valA;
+        const finalScoreStr = `${myTeamScore} - ${opponentScore}`;
+        
+        const matchDate = log.date || '';
 
         modalRowsHtml += `
-            <div class="flex justify-between items-center text-[10px] py-1.5 border-b border-slate-800/80 gap-1.5">
-                <span class="font-black px-1 py-0.5 rounded text-[8px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
-                    ${isWinner ? 'WIN' : 'LOSE'}
-                </span>
-                <div class="text-slate-400 truncate flex-1 min-w-0">
-                    <span class="text-slate-500">w/</span> ${partnerName} <span class="text-slate-600">vs</span> ${opponentString}
+            <div class="bg-[#0B0F17] p-2 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="flex justify-between items-center text-[10px]">
+                    <span class="font-black px-1.5 py-0.5 rounded text-[8px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
+                        ${isWinner ? 'WIN' : 'LOSE'}
+                    </span>
+                    <span class="text-[9px] text-slate-500 font-semibold">${matchDate}</span>
                 </div>
-                <span class="text-white font-black shrink-0 bg-[#0B0F17] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${finalScoreStr}</span>
+                <div class="flex justify-between items-center text-[10px] gap-1">
+                    <div class="text-slate-300 truncate flex-1 min-w-0">
+                        <span class="text-slate-500">w/</span> <strong class="text-slate-200">${partnerName}</strong> 
+                        <span class="text-slate-600 font-bold">vs</span> <span class="text-slate-400">${opponentString}</span>
+                    </div>
+                    <span class="text-white font-black shrink-0 bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${finalScoreStr}</span>
+                </div>
             </div>
         `;
     });
 
-    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">Tidak ada riwayat pertandingan untuk pemain ini pada periode yang dipilih.</div>`;
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No match history available for this period.</div>`;
     modal.classList.remove('hidden');
 };
 
