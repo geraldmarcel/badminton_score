@@ -26,6 +26,31 @@ let currentActiveTab = 'matchmaking';
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
+// Map Nama Bulan ke Angka untuk Parse Data Lama ("21 Jul 26")
+const MONTH_MAP = {
+    jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05',
+    jun: '06', jul: '07', agu: '08', aug: '08', sep: '09', okt: '10', oct: '10',
+    nov: '11', des: '12', dec: '12'
+};
+
+// Helper: Konversi Tanggal Beda-Beda Format ke YYYY-MM
+function extractIsoPeriod(log) {
+    if (log.isoDate) return log.isoDate.substring(0, 7);
+    
+    // Parse format teks lama: "21 Jul 26" atau "21 Jul 2026"
+    if (log.date && typeof log.date === 'string') {
+        const parts = log.date.trim().split(' ');
+        if (parts.length >= 3) {
+            const monthStr = parts[1].substring(0, 3).toLowerCase();
+            const monthNum = MONTH_MAP[monthStr] || '01';
+            let yearNum = parts[2];
+            if (yearNum.length === 2) yearNum = '20' + yearNum;
+            return `${yearNum}-${monthNum}`;
+        }
+    }
+    return '';
+}
+
 // ==========================================
 // THEME SYSTEM
 // ==========================================
@@ -182,7 +207,6 @@ function renderTabStructure() {
         `;
     }
     
-    // Refresh data dan re-bind elemen UI begitu tab selesai dirender ke DOM
     refreshActiveListData();
 }
 
@@ -491,9 +515,7 @@ window.simpanSesiHarian = function() {
     
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
     const isoDateStr = `${year}-${month}`; // Format YYYY-MM
-    
     const displayDateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
 
     matches.forEach(m => {
@@ -559,19 +581,15 @@ function updateLeaderboardList() {
 
     const allLogs = Object.values(matchHistoryLogs);
     
-    // Filter riwayat pertandingan berdasarkan bulan yang dipilih
+    // Filter riwayat pertandingan dengan ekstraksi tanggal fleksibel
     const filteredLogs = allLogs.filter(log => {
         if (selectedPeriod === 'ALL') return true;
-        if (!log.isoDate) return true; // fallback jika data lama tidak ada isoDate
-        
-        // Ambil format YYYY-MM dari isoDate
-        const logPeriod = log.isoDate.substring(0, 7);
+        const logPeriod = extractIsoPeriod(log);
         return logPeriod === selectedPeriod;
     });
 
     let playerStatsMap = {};
     
-    // Inisialisasi statistik pemain
     Object.values(globalPlayers).forEach(p => {
         playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
     });
@@ -581,7 +599,6 @@ function updateLeaderboardList() {
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
 
-        // Registrasi ID darurat jika belum terdaftar
         if (log.idA1 && !playerStatsMap[log.idA1]) playerStatsMap[log.idA1] = { id: log.idA1, name: log.pA1 || 'Player', win: 0, lose: 0 };
         if (log.idA2 && !playerStatsMap[log.idA2]) playerStatsMap[log.idA2] = { id: log.idA2, name: log.pA2 || 'Player', win: 0, lose: 0 };
         if (log.idB1 && !playerStatsMap[log.idB1]) playerStatsMap[log.idB1] = { id: log.idB1, name: log.pB1 || 'Player', win: 0, lose: 0 };
@@ -606,7 +623,6 @@ function updateLeaderboardList() {
         return { ...p, total, rate };
     });
 
-    // Urutkan berdasarkan Win Rate terbanyak -> Jumlah Win -> Nama
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     let lbHtml = '';
@@ -670,9 +686,7 @@ window.openHistoryModal = function(playerId, playerName) {
 
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
-        if (!log.isoDate) return isPlayerInMatch;
-        
-        const logPeriod = log.isoDate.substring(0, 7);
+        const logPeriod = extractIsoPeriod(log);
         const matchPeriod = (selectedPeriod === 'ALL' || logPeriod === selectedPeriod);
 
         return isPlayerInMatch && matchPeriod;
