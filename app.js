@@ -259,13 +259,13 @@ function renderTabStructure() {
                     <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Check-in)</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for rotation matchmaking.</p>
+                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for full rotation matchmaking.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
             <div class="flex gap-1.5 w-full">
                 <button onclick="generateFairMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Generate Rotation
+                    🎲 Generate Full Rotation
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -305,7 +305,7 @@ function renderTabStructure() {
                         </div>
                     </div>
                     <button onclick="saveAndRebalanceLineup()" class="w-full bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider mt-2">
-                        💾 Save & Auto-Balance Subsequent
+                        💾 Save & Re-balance Subsequent
                     </button>
                 </div>
             </div>
@@ -405,15 +405,13 @@ window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
     const hasActiveMatches = Object.keys(currentSchedule).length > 0;
 
-    // Larang uncheck jika match sudah di-generate
     if (hasActiveMatches && !nextStatus) {
         alert("Action Denied: Cannot uncheck players once matches are generated!");
-        renderTabStructure(); // Re-render untuk mengembalikan state checkbox UI
+        renderTabStructure();
         return;
     }
 
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus }).then(() => {
-        // Jika mencentang (check) baru dan match sudah ada, jalankan auto-balancing otomatis
         if (hasActiveMatches && nextStatus) {
             autoBalanceCurrentSchedule();
         }
@@ -442,34 +440,33 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// INTELLIGENT FAIR ROTATION GENERATOR
+// FULL ROTATION FAIR MATCHES GENERATOR 
+// (Setiap orang pasti bisa saling berpasangan & melawan siapa saja - Tanpa Pot)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
     if (activePlayers.length < 4) {
-        alert("At least 4 'Active' players required to generate fair matches!");
+        alert("Minimal harus ada 4 pemain yang 'Check-in' (aktif) untuk membuat jadwal!");
         return;
     }
 
-    let totalActive = activePlayers.length;
-    let targetRounds = Math.max(3, Math.ceil((totalActive * 2) / 4));
-    let totalMatchesToGenerate = targetRounds * Math.floor(totalActive / 4);
-    totalMatchesToGenerate = Math.min(Math.max(totalMatchesToGenerate, 4), 16);
-
     let tempPlayers = {};
     activePlayers.forEach(p => {
-        tempPlayers[p.id] = { id: p.id, name: p.name, match_count: 0, last_played_match: -3 };
+        tempPlayers[p.id] = { 
+            id: p.id, 
+            name: p.name, 
+            match_count: 0, 
+            last_played_match: -5 
+        };
     });
 
     let newMatchesObj = {};
     let existingDoneMatches = {};
 
-    // Ambil match yang sudah selesai (done) agar tidak hilang
     if (preserveDone && currentSchedule) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
                 existingDoneMatches[m.id] = m;
-                // Update tracker rest untuk pemain yang sudah main di match selesai
                 [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
                     if (pId && tempPlayers[pId]) {
                         tempPlayers[pId].match_count++;
@@ -481,17 +478,24 @@ window.generateFairMatches = function(preserveDone = true) {
     }
 
     let startingGameNo = Object.keys(existingDoneMatches).length + 1;
+    let totalActive = activePlayers.length;
+    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 3) / 4)); 
+    let endingGameNo = startingGameNo + targetTotalMatches;
 
-    for (let i = startingGameNo; i < startingGameNo + totalMatchesToGenerate; i++) {
+    for (let i = startingGameNo; i < endingGameNo; i++) {
         let pool = Object.values(tempPlayers);
         
-        // Aturan Rest: Pemain yang baru main (jarak < 2 game) diprioritaskan untuk rest (diurutkan ke belakang)
         pool.sort((a, b) => {
             let restA = i - a.last_played_match;
             let restB = i - b.last_played_match;
+            
             if (restA < 2 && restB >= 2) return 1;
             if (restB < 2 && restA >= 2) return -1;
-            return (a.match_count + Math.random() * 0.3) - (b.match_count + Math.random() * 0.3);
+            
+            if (a.match_count !== b.match_count) {
+                return a.match_count - b.match_count;
+            }
+            return Math.random() - 0.5;
         });
 
         let selected = pool.slice(0, 4);
@@ -499,23 +503,28 @@ window.generateFairMatches = function(preserveDone = true) {
 
         let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
 
-        // Kombinasi tim untuk meminimalkan pasangan statis & sering bertemu lawan yang sama
-        let combos = [
+        let possibleCombos = [
             { tA: [p1, p2], tB: [p3, p4] },
             { tA: [p1, p3], tB: [p2, p4] },
             { tA: [p1, p4], tB: [p2, p3] }
         ];
 
-        let bestCombo = combos[0];
+        let bestCombo = possibleCombos[0];
         let minScore = Infinity;
 
-        combos.forEach(combo => {
-            let pScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-            let oScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                         getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-            let totalW = pScore * 3 + oScore; // Bobot lebih tinggi untuk menghindari pasangan statis
-            if (totalW < minScore) {
-                minScore = totalW;
+        possibleCombos.forEach(combo => {
+            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
+                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+            
+            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
+                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+
+            let totalWeight = (partnerScore * 5) + opponentScore + (Math.random() * 0.5);
+
+            if (totalWeight < minScore) {
+                minScore = totalWeight;
                 bestCombo = combo;
             }
         });
@@ -526,16 +535,19 @@ window.generateFairMatches = function(preserveDone = true) {
         });
 
         newMatchesObj[`m_${i}`] = {
-            id: `m_${i}`, gameNo: i,
+            id: `m_${i}`, 
+            gameNo: i,
             pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
             pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
             pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
             pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id,
-            status: 'pending', winner: '', scoreA: 0, scoreB: 0
+            status: 'pending', 
+            winner: '', 
+            scoreA: 0, 
+            scoreB: 0
         };
     }
 
-    // Gabungkan match yang sudah selesai dengan match baru yang di-generate
     const finalSchedule = { ...existingDoneMatches, ...newMatchesObj };
     db.ref('badminton/current_schedule').set(finalSchedule);
 };
@@ -551,7 +563,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT & EDIT LINEUP DENGAN AUTO-BALANCE
+// SUBMIT & EDIT LINEUP DENGAN BALANCING OTOMATIS
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -626,6 +638,7 @@ window.closeEditLineupModal = function() {
     document.getElementById('modal-edit-lineup').classList.add('hidden');
 };
 
+// BALANCING SYSTEM PADA EDIT LINEUP
 window.saveAndRebalanceLineup = function() {
     const matchId = document.getElementById('edit-match-id-target').value;
     const pA1Id = document.getElementById('select-edit-pA1').value;
@@ -634,12 +647,12 @@ window.saveAndRebalanceLineup = function() {
     const pB2Id = document.getElementById('select-edit-pB2').value;
 
     if (!pA1Id || !pA2Id || !pB1Id || !pB2Id) {
-        alert("All 4 player slots must be filled!");
+        alert("Semua 4 slot pemain harus terisi!");
         return;
     }
 
     if (new Set([pA1Id, pA2Id, pB1Id, pB2Id]).size !== 4) {
-        alert("Each player can only be selected once per match!");
+        alert("Setiap pemain hanya boleh dipilih sekali dalam satu match yang sama!");
         return;
     }
 
@@ -654,6 +667,7 @@ window.saveAndRebalanceLineup = function() {
     let updates = {};
     updates[`badminton/current_schedule/${matchId}`] = match;
 
+    // Hitung ulang akumulasi jam terbang (match_count) untuk re-balancing match berikutnya
     let playerMatchCounts = {};
     Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
 
@@ -662,17 +676,46 @@ window.saveAndRebalanceLineup = function() {
         if (m.id === matchId) {
             [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
         } else if (m.gameNo > match.gameNo && m.status === 'pending') {
+            // Re-balancing otomatis untuk match setelahnya agar jam terbang tetap adil
             let activePool = Object.values(globalPlayers).filter(p => p.is_active);
-            activePool.sort((a, b) => (playerMatchCounts[a.id] || 0) - (playerMatchCounts[b.id] || 0));
+            activePool.sort((a, b) => {
+                let countA = playerMatchCounts[a.id] || 0;
+                let countB = playerMatchCounts[b.id] || 0;
+                if (countA !== countB) return countA - countB;
+                return Math.random() - 0.5;
+            });
             
             let selected = activePool.slice(0, 4);
             if (selected.length >= 4) {
-                m.idA1 = selected[0].id; m.pA1 = selected[0].name;
-                m.idA2 = selected[1].id; m.pA2 = selected[1].name;
-                m.idB1 = selected[2].id; m.pB1 = selected[2].name;
-                m.idB2 = selected[3].id; m.pB2 = selected[3].name;
+                // Terapkan sistem kombinasi cerdas untuk match yang di-rebalance
+                let possibleCombos = [
+                    { tA: [selected[0], selected[1]], tB: [selected[2], selected[3]] },
+                    { tA: [selected[0], selected[2]], tB: [selected[1], selected[3]] },
+                    { tA: [selected[0], selected[3]], tB: [selected[1], selected[2]] }
+                ];
+                let bestCombo = possibleCombos[0];
+                let minScore = Infinity;
 
-                [selected[0].id, selected[1].id, selected[2].id, selected[3].id].forEach(id => {
+                possibleCombos.forEach(combo => {
+                    let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
+                                       getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
+                    let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
+                                        getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
+                                        getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
+                                        getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
+                    let totalWeight = (partnerScore * 5) + opponentScore;
+                    if (totalWeight < minScore) {
+                        minScore = totalWeight;
+                        bestCombo = combo;
+                    }
+                });
+
+                m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
+                m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
+                m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
+                m.idB2 = bestCombo.tB[1].id; m.pB2 = bestCombo.tB[1].name;
+
+                [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(id => {
                     playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
                 });
                 updates[`badminton/current_schedule/${m.id}`] = m;
@@ -686,7 +729,7 @@ window.saveAndRebalanceLineup = function() {
 
     db.ref().update(updates).then(() => {
         closeEditLineupModal();
-        alert("Match lineup updated and subsequent matches re-balanced successfully!");
+        alert("Lineup berhasil diperbarui dan sisa match berhasil di-rebalance secara adil!");
     });
 };
 
@@ -752,7 +795,7 @@ function updateScheduleList() {
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Fair Rotation' button.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Full Rotation' button.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
