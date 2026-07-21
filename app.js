@@ -28,7 +28,7 @@ let isLayoutRendered = false;
 let selectedPeriod = 'ALL';
 
 // ==========================================
-// THEME SYSTEM (LIGHT / DARK MODE)
+// THEME SYSTEM
 // ==========================================
 function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -71,9 +71,9 @@ window.switchTab = function(tabName) {
     Object.keys(tabs).forEach(key => {
         if (!tabs[key]) return;
         if (key === tabName) {
-            tabs[key].className = "flex-1 text-center py-1 text-[9px] sm:text-[11px] font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
+            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg bg-[#FF5722] text-white transition duration-200 shadow-md shadow-[#FF5722]/10";
         } else {
-            tabs[key].className = "flex-1 text-center py-1 text-[9px] sm:text-[11px] font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
+            tabs[key].className = "flex-1 text-center py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition duration-200";
         }
     });
     renderTabStructure();
@@ -83,19 +83,17 @@ window.switchTab = function(tabName) {
 // RENDER LAYOUT STRUKTUR UTAMA
 // ==========================================
 function renderTabStructure() {
-    if (isLayoutRendered) return;
-
     if (currentActiveTab === 'database') {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 space-y-3 shadow-xl w-full">
-                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">Register New Club Member</h2>
+                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Register New Club Member</h2>
                 <div class="flex gap-2 w-full">
                     <input type="text" id="input-nama" placeholder="Enter player full name..." class="flex-1 bg-[#0B0F17] border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:outline-none focus:border-[#FF5722] text-xs transition min-w-0">
                     <button onclick="aksiTambahPemain()" class="bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold px-3.5 py-2 rounded-xl text-xs transition shrink-0">Register</button>
                 </div>
             </div>
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
-                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest mb-3">Registered Members (<span id="total-db">0</span>)</h2>
+                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest mb-3">Registered Members (<span id="total-db">0</span>)</h2>
                 <div id="container-db-list" class="space-y-2 max-h-96 overflow-y-auto pr-0.5"></div>
             </div>
         `;
@@ -108,21 +106,21 @@ function renderTabStructure() {
                         <span class="text-xs">📅</span>
                         <h3 class="text-xs font-bold text-white">Filter Period</h3>
                     </div>
-                    <button onclick="resetFilterPeriode()" class="text-[9px] sm:text-[10px] bg-[#0B0F17] text-[#FF5722] px-2 py-0.5 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition shrink-0">Show All Time</button>
+                    <button onclick="resetFilterPeriode()" class="text-[10px] bg-[#0B0F17] text-[#FF5722] px-2.5 py-1 rounded-lg border border-slate-800 font-bold hover:border-[#FF5722] transition shrink-0">Show All Time</button>
                 </div>
                 
                 <div class="w-full">
                     <input type="month" id="filter-month-picker" onchange="onMonthPickerChange(this.value)" 
-                           class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#FF5722] transition">
+                           class="w-full bg-[#0B0F17] text-xs font-bold text-[#FF5722] border border-slate-800 rounded-xl px-3 py-2 focus:outline-none focus:border-[#FF5722] transition">
                 </div>
             </div>
 
             <!-- LEADERBOARD TABLE -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
-                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
+                <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
                 <div class="overflow-x-auto w-full">
-                    <table class="w-full text-left text-xs text-slate-300 min-w-[300px]">
-                        <thead class="text-[9px] sm:text-[10px] uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
+                    <table class="w-full text-left text-xs text-slate-300 min-w-[280px]">
+                        <thead class="text-[10px] uppercase bg-[#0B0F17] text-slate-500 border-b border-slate-800/60">
                             <tr>
                                 <th class="py-2 px-1 text-center w-6">#</th>
                                 <th class="py-2 px-1.5">Name</th>
@@ -139,8 +137,8 @@ function renderTabStructure() {
             <!-- ALL MATCHES HISTORY LOG -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                 <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
-                    <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
-                    <span id="total-matches-count" class="text-[9px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
+                    <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
+                    <span id="total-matches-count" class="text-[10px] bg-[#0B0F17] text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">0 Matches</span>
                 </div>
                 <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
@@ -164,7 +162,7 @@ function renderTabStructure() {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
                 <div class="flex justify-between items-start mb-1 gap-1">
-                    <h2 class="text-[11px] sm:text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status</h2>
+                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
                 <p class="text-[10px] text-slate-500 mb-3">Check active players at venue. Uncheck immediately if someone rests.</p>
@@ -172,21 +170,22 @@ function renderTabStructure() {
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-[11px] sm:text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                <button onclick="generate10Matches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
                     🎲 Generate 10 Matches
                 </button>
-                <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-[11px] sm:text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
+                <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
                 </button>
             </div>
 
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
-                <h2 class="text-[11px] sm:text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
+                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
                 <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
         `;
     }
-    isLayoutRendered = true;
+    
+    // Panggil pembaruan data secara langsung setelah HTML selesai dirender
     refreshActiveListData();
 }
 
@@ -202,7 +201,6 @@ function refreshActiveListData() {
 db.ref('badminton/players').on('value', (snapshot) => {
     globalPlayers = snapshot.val() || {};
     renderTabStructure();
-    refreshActiveListData();
 });
 
 db.ref('badminton/history').on('value', (snapshot) => { 
@@ -255,7 +253,8 @@ function updateDatabasePemainList() {
         `;
     });
     container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-4">No registered members found.</p>`;
-    document.getElementById('total-db').innerText = sorted.length;
+    const totalElem = document.getElementById('total-db');
+    if (totalElem) totalElem.innerText = sorted.length;
 }
 
 // ==========================================
@@ -312,7 +311,7 @@ function updateAbsenHariIniList() {
             <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1">
                     <input type="checkbox" ${p.is_active ? 'checked' : ''} onclick="toggleAbsenHariIni('${p.id}', ${p.is_active})" class="w-3.5 h-3.5 accent-[#FF5722] shrink-0">
-                    <span class="text-[11px] font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
+                    <span class="text-xs font-bold ${p.is_active ? 'text-[#FF5722]' : 'text-slate-500'} truncate">${p.name}</span>
                 </div>
                 <span class="text-[9px] text-slate-600 font-bold shrink-0 ml-0.5">(${p.match_count}x)</span>
             </label>
@@ -444,7 +443,7 @@ function updateScheduleList() {
                     <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                 </div>
                 
-                <div class="flex items-center justify-between text-[11px] sm:text-xs font-bold gap-1 w-full">
+                <div class="flex items-center justify-between text-xs font-bold gap-1 w-full">
                     <div class="w-[38%] p-1.5 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
                     
                     <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
@@ -549,12 +548,14 @@ window.resetFilterPeriode = function() {
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
     const matchesContainer = document.getElementById('container-all-matches-list');
+    
+    // Safety check untuk memastikan elemen DOM tersedia
     if (!tbody || !matchesContainer) return;
 
     const allLogs = Object.values(matchHistoryLogs);
     
     const filteredLogs = allLogs.filter(log => {
-        if (!log.isoDate) return false;
+        if (!log.isoDate) return true; // fallback untuk log lama tanpa isoDate
         if (selectedPeriod === 'ALL') return true;
         
         const logPeriod = log.isoDate.substring(0, 7);
@@ -597,7 +598,7 @@ function updateLeaderboardList() {
         lbHtml += `
             <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
                 <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
-                <td class="py-2.5 px-1.5 text-white truncate max-w-[110px]">
+                <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
                     <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
                         ${p.name}
                     </span>
@@ -611,7 +612,8 @@ function updateLeaderboardList() {
 
     tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-600 py-6">No historical data available.</td></tr>`;
 
-    document.getElementById('total-matches-count').innerText = `${filteredLogs.length} Matches`;
+    const countElem = document.getElementById('total-matches-count');
+    if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
     
     let matchesHtml = '';
     filteredLogs.slice().reverse().forEach(log => {
@@ -626,7 +628,7 @@ function updateLeaderboardList() {
                 </div>
                 <div class="w-[24%] text-center shrink-0">
                     <span class="bg-[#1E2638] px-1.5 py-0.5 rounded text-white font-black text-[11px] border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
-                    <div class="text-[8px] text-slate-600 mt-0.5">${log.date}</div>
+                    <div class="text-[8px] text-slate-600 mt-0.5">${log.date || ''}</div>
                 </div>
                 <div class="w-[38%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
                     ${log.pB1} & ${log.pB2}
@@ -652,7 +654,7 @@ window.openHistoryModal = function(playerId, playerName) {
 
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
-        if (!log.isoDate) return false;
+        if (!log.isoDate) return isPlayerInMatch;
         
         const logPeriod = log.isoDate.substring(0, 7);
         const matchPeriod = (selectedPeriod === 'ALL' || logPeriod === selectedPeriod);
