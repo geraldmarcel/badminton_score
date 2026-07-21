@@ -30,17 +30,15 @@ let editingMatchLogId = null;
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
-// Map Nama Bulan ke Angka untuk Parse Data Format Teks Lama ("21 Jul 26")
+// Map Nama Bulan
 const MONTH_MAP = {
     jan: '01', feb: '02', mar: '03', apr: '04', mei: '05', may: '05',
     jun: '06', jul: '07', agu: '08', aug: '08', sep: '09', okt: '10', oct: '10',
     nov: '11', des: '12', dec: '12'
 };
 
-// Helper: Konversi Tanggal Beda Format ke String YYYY-MM
 function extractIsoPeriod(log) {
     if (log.isoDate) return log.isoDate.substring(0, 7);
-    
     if (log.date && typeof log.date === 'string') {
         const parts = log.date.trim().split(' ');
         if (parts.length >= 3) {
@@ -91,7 +89,7 @@ window.switchTab = function(tabName) {
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
-        leaderboard: document.getElementById('btn-tab-[#FF5722]') || document.getElementById('btn-tab-leaderboard'),
+        leaderboard: document.getElementById('btn-tab-[#FF5722]') || document.getElementById('btn-[#FF5722]'),
         database: document.getElementById('btn-tab-database')
     };
 
@@ -259,13 +257,13 @@ function renderTabStructure() {
                     <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Check-in)</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for full rotation matchmaking.</p>
+                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for auto matchmaking rotation.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generateFairMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Generate Full Rotation
+                <button onclick="generateFairMatches(false)" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Reset & Re-Generate All
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -305,7 +303,7 @@ function renderTabStructure() {
                         </div>
                     </div>
                     <button onclick="saveAndRebalanceLineup()" class="w-full bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider mt-2">
-                        💾 Save & Re-balance Subsequent
+                        💾 Save & Re-balance Smoothly
                     </button>
                 </div>
             </div>
@@ -399,21 +397,16 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: ATTENDANCE TOGGLE (LOCK UNCHECK WHEN SCHEDULED & AUTO-BALANCE)
+// AUTO-GENERATE & SMOOTH REBALANCE LOGIC
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
     const nextStatus = !currentStatus;
-    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
-
-    if (hasActiveMatches && !nextStatus) {
-        alert("Action Denied: Cannot uncheck players once matches are generated!");
-        renderTabStructure();
-        return;
-    }
-
+    
     db.ref(`badminton/players/${id}`).update({ is_active: nextStatus }).then(() => {
-        if (hasActiveMatches && nextStatus) {
-            autoBalanceCurrentSchedule();
+        // Otomatis menata ulang match secara halus tanpa tombol generate jika ada jadwal aktif
+        const activeCount = Object.values(globalPlayers).filter(p => p.is_active || p.id === id).length;
+        if (activeCount >= 4) {
+            generateFairMatches(true);
         }
     });
 };
@@ -423,7 +416,6 @@ function updateAbsenHariIniList() {
     if (!container) return;
     let html = '';
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
-    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
 
     sorted.forEach(p => {
         html += `
@@ -440,15 +432,11 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// FULL ROTATION FAIR MATCHES GENERATOR 
-// (Setiap orang pasti bisa saling berpasangan & melawan siapa saja - Tanpa Pot)
+// ROTATION ALGORITHM: ATURAN ISTIRAHAT MAX 1-3 GAME
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
-    if (activePlayers.length < 4) {
-        alert("Minimal harus ada 4 pemain yang 'Check-in' (aktif) untuk membuat jadwal!");
-        return;
-    }
+    if (activePlayers.length < 4) return;
 
     let tempPlayers = {};
     activePlayers.forEach(p => {
@@ -456,13 +444,11 @@ window.generateFairMatches = function(preserveDone = true) {
             id: p.id, 
             name: p.name, 
             match_count: 0, 
-            last_played_match: -5 
+            last_played_match: -10 
         };
     });
 
-    let newMatchesObj = {};
     let existingDoneMatches = {};
-
     if (preserveDone && currentSchedule) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
@@ -479,23 +465,26 @@ window.generateFairMatches = function(preserveDone = true) {
 
     let startingGameNo = Object.keys(existingDoneMatches).length + 1;
     let totalActive = activePlayers.length;
-    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 3) / 4)); 
-    let endingGameNo = startingGameNo + targetTotalMatches;
+    let targetTotalMatches = Math.max(startingGameNo + 3, Math.ceil((totalActive * 3) / 4)); 
 
-    for (let i = startingGameNo; i < endingGameNo; i++) {
+    let newMatchesObj = {};
+
+    for (let i = startingGameNo; i <= targetTotalMatches; i++) {
         let pool = Object.values(tempPlayers);
         
+        // Sorting berdasarkan waktu istirahat & akumulasi match (Aturan Istirahat Max 1-3 Game)
         pool.sort((a, b) => {
             let restA = i - a.last_played_match;
             let restB = i - b.last_played_match;
             
-            if (restA < 2 && restB >= 2) return 1;
-            if (restB < 2 && restA >= 2) return -1;
-            
+            // Jika pemain sudah rehat >= 2-3 game, beri prioritas penuh!
+            if (restA >= 2 && restB < 2) return -1;
+            if (restB >= 2 && restA < 2) return 1;
+
             if (a.match_count !== b.match_count) {
                 return a.match_count - b.match_count;
             }
-            return Math.random() - 0.5;
+            return restB - restA; 
         });
 
         let selected = pool.slice(0, 4);
@@ -521,7 +510,7 @@ window.generateFairMatches = function(preserveDone = true) {
                                 getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
                                 getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
 
-            let totalWeight = (partnerScore * 5) + opponentScore + (Math.random() * 0.5);
+            let totalWeight = (partnerScore * 6) + opponentScore + (Math.random() * 0.3);
 
             if (totalWeight < minScore) {
                 minScore = totalWeight;
@@ -552,10 +541,6 @@ window.generateFairMatches = function(preserveDone = true) {
     db.ref('badminton/current_schedule').set(finalSchedule);
 };
 
-function autoBalanceCurrentSchedule() {
-    generateFairMatches(true);
-}
-
 function getHistoryScore(id1, id2, tipe) {
     const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
     if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
@@ -563,7 +548,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT & EDIT LINEUP DENGAN BALANCING OTOMATIS
+// SUBMIT & EDIT LINEUP MATCH
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -638,7 +623,6 @@ window.closeEditLineupModal = function() {
     document.getElementById('modal-edit-lineup').classList.add('hidden');
 };
 
-// BALANCING SYSTEM PADA EDIT LINEUP
 window.saveAndRebalanceLineup = function() {
     const matchId = document.getElementById('edit-match-id-target').value;
     const pA1Id = document.getElementById('select-edit-pA1').value;
@@ -652,7 +636,7 @@ window.saveAndRebalanceLineup = function() {
     }
 
     if (new Set([pA1Id, pA2Id, pB1Id, pB2Id]).size !== 4) {
-        alert("Setiap pemain hanya boleh dipilih sekali dalam satu match yang sama!");
+        alert("Setiap pemain hanya boleh dipilih sekali!");
         return;
     }
 
@@ -667,69 +651,9 @@ window.saveAndRebalanceLineup = function() {
     let updates = {};
     updates[`badminton/current_schedule/${matchId}`] = match;
 
-    // Hitung ulang akumulasi jam terbang (match_count) untuk re-balancing match berikutnya
-    let playerMatchCounts = {};
-    Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
-
-    const sortedMatches = Object.values(currentSchedule).sort((a,b)=> a.gameNo - b.gameNo);
-    sortedMatches.forEach(m => {
-        if (m.id === matchId) {
-            [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
-        } else if (m.gameNo > match.gameNo && m.status === 'pending') {
-            // Re-balancing otomatis untuk match setelahnya agar jam terbang tetap adil
-            let activePool = Object.values(globalPlayers).filter(p => p.is_active);
-            activePool.sort((a, b) => {
-                let countA = playerMatchCounts[a.id] || 0;
-                let countB = playerMatchCounts[b.id] || 0;
-                if (countA !== countB) return countA - countB;
-                return Math.random() - 0.5;
-            });
-            
-            let selected = activePool.slice(0, 4);
-            if (selected.length >= 4) {
-                // Terapkan sistem kombinasi cerdas untuk match yang di-rebalance
-                let possibleCombos = [
-                    { tA: [selected[0], selected[1]], tB: [selected[2], selected[3]] },
-                    { tA: [selected[0], selected[2]], tB: [selected[1], selected[3]] },
-                    { tA: [selected[0], selected[3]], tB: [selected[1], selected[2]] }
-                ];
-                let bestCombo = possibleCombos[0];
-                let minScore = Infinity;
-
-                possibleCombos.forEach(combo => {
-                    let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                                       getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-                    let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                        getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-                    let totalWeight = (partnerScore * 5) + opponentScore;
-                    if (totalWeight < minScore) {
-                        minScore = totalWeight;
-                        bestCombo = combo;
-                    }
-                });
-
-                m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
-                m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
-                m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
-                m.idB2 = bestCombo.tB[1].id; m.pB2 = bestCombo.tB[1].name;
-
-                [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(id => {
-                    playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
-                });
-                updates[`badminton/current_schedule/${m.id}`] = m;
-            }
-        } else {
-            [m.idA1, m.idA2, m.idB1, m.idB2].forEach(id => {
-                if (id) playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
-            });
-        }
-    });
-
     db.ref().update(updates).then(() => {
         closeEditLineupModal();
-        alert("Lineup berhasil diperbarui dan sisa match berhasil di-rebalance secara adil!");
+        generateFairMatches(true); // Rebalance smooth tanpa merusak match done
     });
 };
 
@@ -745,6 +669,9 @@ window.batalSesiMatch = function() {
     db.ref().update(updates);
 };
 
+// ==========================================
+// TAMPILAN MATCH SCHEDULE (DONE DITAMPILKAN TETAP TRANSPARAN)
+// ==========================================
 function updateScheduleList() {
     const container = document.getElementById('container-schedule-list');
     const resetContainer = document.getElementById('container-reset-session');
@@ -759,12 +686,12 @@ function updateScheduleList() {
         const displayScoreB = m.scoreB || 0;
 
         html += `
-            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner w-full">
+            <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-emerald-900/30 bg-[#0B0F17]/50 opacity-70' : 'border-slate-800/80'} shadow-inner w-full transition">
                 <div class="flex justify-between items-center text-[9px] text-slate-500 font-bold mb-2 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
                     <div class="flex items-center gap-2">
                         <button onclick="bukaEditLineupModal('${m.id}')" class="text-amber-400 hover:underline uppercase font-bold">✏️ Edit Lineup</button>
-                        <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
+                        <span class="${isDone ? 'text-emerald-400 font-extrabold':'text-[#FF5722]'} uppercase font-black">${isDone ? '✓ DONE' : 'PENDING'}</span>
                     </div>
                 </div>
                 
@@ -773,9 +700,9 @@ function updateScheduleList() {
                     
                     <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
                         ${isDone ? `
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreA}</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800">${displayScoreA}</span>
                             <span class="text-slate-600 text-[10px]">:</span>
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreB}</span>
+                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800">${displayScoreB}</span>
                         ` : `
                             <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" onfocus="if(this.value==='0') this.value='';" onblur="if(this.value==='') this.value='0';" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
                             <span class="text-slate-700 text-[10px]">:</span>
@@ -795,7 +722,7 @@ function updateScheduleList() {
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Full Rotation' button.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Check-in players above to start auto rotation.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
