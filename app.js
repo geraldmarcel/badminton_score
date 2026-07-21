@@ -122,6 +122,7 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
+            <!-- FILTER PERIODE MONTH PICKER -->
             <div class="bg-[#1E2638] p-3.5 rounded-2xl border border-slate-800/50 shadow-xl space-y-2.5 w-full">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -137,6 +138,7 @@ function renderTabStructure() {
                 </div>
             </div>
 
+            <!-- LEADERBOARD TABLE -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
                 <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">🏆 Performance Leaderboard</h2>
                 <div class="overflow-x-auto w-full">
@@ -155,6 +157,7 @@ function renderTabStructure() {
                 </div>
             </div>
 
+            <!-- ALL MATCHES HISTORY LOG -->
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                 <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
                     <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
@@ -163,6 +166,7 @@ function renderTabStructure() {
                 <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
             </div>
 
+            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
                 <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-2.5">
@@ -199,6 +203,9 @@ function renderTabStructure() {
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                 <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
                 <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
+                
+                <!-- TOMBOL CANCEL / RESET SESSION DI PALING BAWAH SCHEDULE -->
+                <div id="container-reset-session" class="pt-2"></div>
             </div>
         `;
     }
@@ -451,8 +458,27 @@ window.bukaEditSkorGame = function(matchId) {
     db.ref(`badminton/current_schedule/${matchId}`).update({ status: 'pending' });
 };
 
+// ==========================================
+// CANCEL / RESET CURRENT MATCH SESSION
+// ==========================================
+window.batalSesiMatch = function() {
+    if (!confirm("Are you sure you want to cancel and clear the current generated matches?")) return;
+
+    let updates = {};
+    // Kosongkan jadwal yang berjalan
+    updates['badminton/current_schedule'] = null;
+
+    // Reset match_count seluruh pemain kembali ke 0
+    Object.keys(globalPlayers).forEach(id => {
+        updates[`badminton/players/${id}/match_count`] = 0;
+    });
+
+    db.ref().update(updates);
+};
+
 function updateScheduleList() {
     const container = document.getElementById('container-schedule-list');
+    const resetContainer = document.getElementById('container-reset-session');
     if (!container) return;
 
     let html = '';
@@ -496,7 +522,21 @@ function updateScheduleList() {
             </div>
         `;
     });
+
     container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate 10 Matches' button.</p>`;
+
+    // Tampilkan tombol cancel/reset session HANYA jika ada match yang ter-generate
+    if (resetContainer) {
+        if (mList.length > 0) {
+            resetContainer.innerHTML = `
+                <button onclick="batalSesiMatch()" class="w-full bg-red-950/30 hover:bg-red-900/60 text-red-400 border border-red-900/30 font-bold text-xs py-2.5 px-3 rounded-xl transition duration-150 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                    <span>🚫</span> Cancel / Reset Current Matches
+                </button>
+            `;
+        } else {
+            resetContainer.innerHTML = '';
+        }
+    }
 }
 
 // ==========================================
