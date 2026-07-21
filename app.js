@@ -27,6 +27,9 @@ let currentActiveTab = 'matchmaking';
 let isAdminView = false;
 let editingMatchLogId = null;
 
+// Matchmaking Edit State
+let editingScheduleMatchId = null;
+
 // Dynamic Filter State ('ALL' or 'YYYY-MM')
 let selectedPeriod = 'ALL';
 
@@ -87,7 +90,7 @@ initTheme();
 // ==========================================
 window.switchTab = function(tabName) {
     currentActiveTab = tabName;
-    if (tabName !== 'leaderboard') isAdminView = false;
+    if (tabName !== 'leaderboard') isAdminView = false; // Reset admin mode jika pindah tab
     
     const tabs = {
         matchmaking: document.getElementById('btn-tab-matchmaking'),
@@ -132,6 +135,7 @@ function renderTabStructure() {
         `;
     } else if (currentActiveTab === 'leaderboard') {
         appContent.innerHTML = `
+            <!-- FILTER PERIODE MONTH PICKER -->
             <div class="bg-[#1E2638] p-3.5 rounded-2xl border border-slate-800/50 shadow-xl space-y-2.5 w-full">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -147,6 +151,7 @@ function renderTabStructure() {
             </div>
 
             ${!isAdminView ? `
+                <!-- LEADERBOARD PUBLIC VIEW -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full overflow-hidden">
                     <div class="flex justify-between items-center cursor-pointer" onclick="toggleAdminMode()" title="Click to open Admin Panel">
                         <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest hover:underline flex items-center gap-1.5">
@@ -170,6 +175,7 @@ function renderTabStructure() {
                     </div>
                 </div>
 
+                <!-- ALL MATCHES HISTORY LOG (PUBLIC) -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
                     <div class="flex justify-between items-center border-b border-slate-800/60 pb-2.5">
                         <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest">⚔️ Matches History</h2>
@@ -178,6 +184,7 @@ function renderTabStructure() {
                     <div id="container-all-matches-list" class="space-y-2 max-h-[450px] overflow-y-auto pr-0.5 scroll-smooth"></div>
                 </div>
             ` : `
+                <!-- ADMIN PANEL VIEW -->
                 <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 shadow-2xl space-y-3 w-full">
                     <div class="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
                         <div class="flex items-center gap-1.5">
@@ -189,6 +196,7 @@ function renderTabStructure() {
                         </button>
                     </div>
 
+                    <!-- FORM INSERT / EDIT MATCH -->
                     <div id="container-admin-form" class="bg-[#0B0F17] p-3 rounded-xl border border-slate-800 space-y-2.5">
                         <h3 id="form-admin-title" class="text-[11px] font-bold text-[#FF5722] uppercase tracking-wider">➕ Add New Match Entry</h3>
                         
@@ -230,6 +238,7 @@ function renderTabStructure() {
                         </div>
                     </div>
 
+                    <!-- ADMIN MATCHES LIST FOR EDIT & DELETE -->
                     <div class="space-y-2">
                         <div class="flex justify-between items-center pt-2 border-t border-slate-800">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Existing Matches (<span id="total-matches-admin-count">0</span>)</h3>
@@ -239,6 +248,7 @@ function renderTabStructure() {
                 </div>
             `}
 
+            <!-- MODAL DIALOG UNTUK RIWAYAT PERTANDINGAN -->
             <div id="modal-history" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
                 <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2.5 mb-2.5">
@@ -256,16 +266,16 @@ function renderTabStructure() {
         appContent.innerHTML = `
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl w-full">
                 <div class="flex justify-between items-start mb-1 gap-1">
-                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status (Check-in)</h2>
+                    <h2 class="text-xs font-bold uppercase text-[#FF5722] tracking-widest">Attendance Status</h2>
                     <button onclick="resetSemuaJumlahMain()" class="text-[9px] bg-red-950/40 text-red-400 px-1.5 py-0.5 rounded border border-red-900/20 font-bold hover:bg-red-900/60 transition shrink-0">Reset Count</button>
                 </div>
-                <p class="text-[10px] text-slate-500 mb-3">Check members who are present today for full rotation matchmaking.</p>
+                <p class="text-[10px] text-slate-500 mb-3">Centang pemain yang hadir. Setelah jadwal digenerate, pemain aktif hanya bisa DITAMBAH (check) — untuk mengganti pemain di sebuah match, pakai tombol "✏️ Edit Pemain" pada kartu match-nya.</p>
                 <div id="container-absen-list" class="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5"></div>
             </div>
 
             <div class="flex gap-1.5 w-full">
-                <button onclick="generateFairMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
-                    🎲 Generate Full Rotation
+                <button onclick="generateMatches()" class="flex-1 bg-gradient-to-r from-[#FF5722] to-[#ff7043] text-white font-black text-xs py-3 px-2 rounded-xl shadow-lg shadow-[#FF5722]/10 transition active:scale-95 uppercase tracking-wider truncate">
+                    🎲 Generate Matches (Balanced)
                 </button>
                 <button onclick="simpanSesiHarian()" class="bg-[#1E2638] text-white font-bold text-xs px-3 py-3 rounded-xl hover:bg-slate-700 border border-slate-700/60 transition uppercase tracking-wider shadow-lg shrink-0">
                     💾 Save Session
@@ -273,41 +283,9 @@ function renderTabStructure() {
             </div>
 
             <div class="bg-[#1E2638] p-3.5 sm:p-4 rounded-2xl border border-slate-800/50 shadow-xl space-y-3 w-full">
-                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules & Lineup</h2>
+                <h2 class="text-xs font-bold uppercase text-slate-400 tracking-widest border-b border-slate-800/60 pb-2.5">📋 Match Schedules</h2>
                 <div id="container-schedule-list" class="space-y-3 max-h-[550px] overflow-y-auto pr-0.5 scroll-smooth"></div>
                 <div id="container-reset-session" class="pt-2"></div>
-            </div>
-
-            <!-- MODAL EDIT LINEUP MATCH -->
-            <div id="modal-edit-lineup" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden backdrop-blur-sm p-3">
-                <div class="bg-[#1E2638] w-full max-w-sm rounded-2xl border border-slate-800 shadow-2xl p-4 overflow-hidden space-y-3">
-                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                        <h3 class="text-xs font-black text-white uppercase tracking-wider">✏️ Edit Match Lineup</h3>
-                        <button onclick="closeEditLineupModal()" class="text-slate-400 hover:text-white bg-[#0B0F17] w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs transition border border-slate-800">&times;</button>
-                    </div>
-                    <input type="hidden" id="edit-match-id-target">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team A - P1</label>
-                            <select id="select-edit-pA1" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
-                        </div>
-                        <div>
-                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team A - P2</label>
-                            <select id="select-edit-pA2" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
-                        </div>
-                        <div>
-                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team B - P1</label>
-                            <select id="select-edit-pB1" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
-                        </div>
-                        <div>
-                            <label class="text-[9px] text-slate-400 uppercase font-bold block mb-1">Team B - P2</label>
-                            <select id="select-edit-pB2" class="w-full bg-[#0B0F17] border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-[#FF5722]"></select>
-                        </div>
-                    </div>
-                    <button onclick="saveAndRebalanceLineup()" class="w-full bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-2 rounded-xl text-xs transition uppercase tracking-wider mt-2">
-                        💾 Save & Re-balance Subsequent
-                    </button>
-                </div>
             </div>
         `;
     }
@@ -357,6 +335,7 @@ db.ref('badminton/match_history').on('value', (snapshot) => {
     }
 });
 
+// INITIAL RENDER AT LAUNCH
 renderTabStructure();
 
 // ==========================================
@@ -399,23 +378,22 @@ function updateDatabasePemainList() {
 }
 
 // ==========================================
-// TAB: ATTENDANCE TOGGLE (LOCK UNCHECK WHEN SCHEDULED & AUTO-BALANCE)
+// TAB: MATCHMAKING & AUTO-SUBSTITUTION
 // ==========================================
 window.toggleAbsenHariIni = function(id, currentStatus) {
-    const nextStatus = !currentStatus;
-    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
+    const scheduleActive = Object.keys(currentSchedule).length > 0;
 
-    if (hasActiveMatches && !nextStatus) {
-        alert("Action Denied: Cannot uncheck players once matches are generated!");
-        renderTabStructure();
+    // Once matches have been generated for the session, players can only be
+    // checked IN (marked present), not unchecked. Swapping a player out of a
+    // specific match is now handled via the "Edit Pemain" button on that
+    // match's card instead, which also auto-rebalances everything below it.
+    if (currentStatus === true && scheduleActive) {
+        alert('Sesi sedang berjalan, pemain yang sudah aktif tidak bisa di-uncheck. Untuk mengganti pemain di sebuah match, gunakan tombol "✏️ Edit Pemain" pada kartu match tersebut.');
         return;
     }
 
-    db.ref(`badminton/players/${id}`).update({ is_active: nextStatus }).then(() => {
-        if (hasActiveMatches && nextStatus) {
-            autoBalanceCurrentSchedule();
-        }
-    });
+    const nextStatus = !currentStatus;
+    db.ref(`badminton/players/${id}`).update({ is_active: nextStatus });
 };
 
 function updateAbsenHariIniList() {
@@ -423,8 +401,6 @@ function updateAbsenHariIniList() {
     if (!container) return;
     let html = '';
     const sorted = Object.values(globalPlayers).sort((a,b)=> a.name.localeCompare(b.name));
-    const hasActiveMatches = Object.keys(currentSchedule).length > 0;
-
     sorted.forEach(p => {
         html += `
             <label class="flex items-center justify-between bg-[#0B0F17] p-2 rounded-xl border ${p.is_active ? 'border-[#FF5722]/50 bg-[#FF5722]/5' : 'border-slate-800/40'} cursor-pointer select-none transition min-w-0">
@@ -440,120 +416,133 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// FULL ROTATION FAIR MATCHES GENERATOR 
-// (Setiap orang pasti bisa saling berpasangan & melawan siapa saja - Tanpa Pot)
+// SMART BALANCED MATCH GENERATOR
+// - Match count is dynamic, not fixed at 10.
+// - Keeps generating until everyone active has played at least
+//   MIN_ROUNDS_PER_PLAYER times AND the spread between the most-played and
+//   least-played active player is at most 1 (i.e. everybody plays evenly).
+// - A player never plays two matches in a row (back-to-back) if there are
+//   enough other active players to avoid it.
+// - Partner/opponent pairings from the last few matches are penalized so the
+//   same pair doesn't meet again right away.
 // ==========================================
-window.generateFairMatches = function(preserveDone = true) {
+const MIN_ROUNDS_PER_PLAYER = 2;
+const MAX_MATCHES_SAFETY = 20; // hard cap so this can never loop forever
+
+window.generateMatches = function() {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
     if (activePlayers.length < 4) {
-        alert("Minimal harus ada 4 pemain yang 'Check-in' (aktif) untuk membuat jadwal!");
+        alert("At least 4 'Active' players required to generate double fixtures!");
         return;
     }
 
-    let tempPlayers = {};
-    activePlayers.forEach(p => {
-        tempPlayers[p.id] = { 
-            id: p.id, 
-            name: p.name, 
-            match_count: 0, 
-            last_played_match: -5 
-        };
-    });
+    let tempPlayers = JSON.parse(JSON.stringify(globalPlayers));
+    const activeIds = activePlayers.map(p => p.id);
 
-    let newMatchesObj = {};
-    let existingDoneMatches = {};
+    let matchesObj = {};
+    let sessionPartnerLast = {};   // pairKey -> gameNo they last partnered
+    let sessionOpponentLast = {}; // pairKey -> gameNo they last faced each other
+    let lastMatchPlayerIds = [];   // players who played the previous match
+    let gameNo = 0;
 
-    if (preserveDone && currentSchedule) {
-        Object.values(currentSchedule).forEach(m => {
-            if (m.status === 'done') {
-                existingDoneMatches[m.id] = m;
-                [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
-                    if (pId && tempPlayers[pId]) {
-                        tempPlayers[pId].match_count++;
-                        tempPlayers[pId].last_played_match = m.gameNo;
-                    }
-                });
-            }
-        });
+    while (gameNo < MAX_MATCHES_SAFETY) {
+        const counts = activeIds.map(id => tempPlayers[id].match_count);
+        const minCount = Math.min(...counts);
+        const maxCount = Math.max(...counts);
+        if (minCount >= MIN_ROUNDS_PER_PLAYER && (maxCount - minCount) <= 1) break;
+
+        gameNo++;
+
+        const generated = pickNextMatch(gameNo, activeIds, tempPlayers, lastMatchPlayerIds, sessionPartnerLast, sessionOpponentLast);
+        if (!generated) break; // not enough distinct players available, stop here
+
+        matchesObj[generated.match.id] = generated.match;
+        lastMatchPlayerIds = generated.playerIds;
     }
 
-    let startingGameNo = Object.keys(existingDoneMatches).length + 1;
-    let totalActive = activePlayers.length;
-    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 3) / 4)); 
-    let endingGameNo = startingGameNo + targetTotalMatches;
+    if (Object.keys(matchesObj).length === 0) {
+        alert("Unable to generate matches with the current active players.");
+        return;
+    }
 
-    for (let i = startingGameNo; i < endingGameNo; i++) {
-        let pool = Object.values(tempPlayers);
-        
-        pool.sort((a, b) => {
-            let restA = i - a.last_played_match;
-            let restB = i - b.last_played_match;
-            
-            if (restA < 2 && restB >= 2) return 1;
-            if (restB < 2 && restA >= 2) return -1;
-            
-            if (a.match_count !== b.match_count) {
-                return a.match_count - b.match_count;
-            }
-            return Math.random() - 0.5;
+    db.ref('badminton/current_schedule').set(matchesObj);
+};
+
+// Picks the fairest match for slot `gameNo` given the running state, mutating
+// tempPlayers/sessionPartnerLast/sessionOpponentLast in place. Shared by both
+// the main generator and the downstream auto-rebalancer (see below).
+function pickNextMatch(gameNo, activeIds, tempPlayers, lastMatchPlayerIds, sessionPartnerLast, sessionOpponentLast) {
+    // Prefer players who didn't play the previous match so nobody goes twice in a row.
+    let pool = activeIds.filter(id => !lastMatchPlayerIds.includes(id)).map(id => tempPlayers[id]);
+    if (pool.length < 4) pool = activeIds.map(id => tempPlayers[id]); // fallback if too few people to rest
+
+    // Least-played first, with light randomization so the same 4 aren't always picked together.
+    pool.sort((a, b) => (a.match_count + Math.random() * 0.49) - (b.match_count + Math.random() * 0.49));
+    const selected = pool.slice(0, 4);
+    if (selected.length < 4) return null;
+
+    const [p1, p2, p3, p4] = selected;
+    const combos = [
+        { tA: [p1, p2], tB: [p3, p4] },
+        { tA: [p1, p3], tB: [p2, p4] },
+        { tA: [p1, p4], tB: [p2, p3] }
+    ];
+
+    let bestCombo = combos[0];
+    let minWeight = Infinity;
+
+    combos.forEach(combo => {
+        let weight = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') * 3
+                   + getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner') * 3;
+
+        weight += recencyPenalty(sessionPartnerLast, pairKey(combo.tA[0].id, combo.tA[1].id), gameNo, 25);
+        weight += recencyPenalty(sessionPartnerLast, pairKey(combo.tB[0].id, combo.tB[1].id), gameNo, 25);
+        [combo.tA[0].id, combo.tA[1].id].forEach(a => {
+            [combo.tB[0].id, combo.tB[1].id].forEach(b => {
+                weight += recencyPenalty(sessionOpponentLast, pairKey(a, b), gameNo, 8);
+            });
         });
 
-        let selected = pool.slice(0, 4);
-        if (selected.length < 4) break;
+        if (weight < minWeight) { minWeight = weight; bestCombo = combo; }
+    });
 
-        let p1 = selected[0], p2 = selected[1], p3 = selected[2], p4 = selected[3];
+    tempPlayers[bestCombo.tA[0].id].match_count++;
+    tempPlayers[bestCombo.tA[1].id].match_count++;
+    tempPlayers[bestCombo.tB[0].id].match_count++;
+    tempPlayers[bestCombo.tB[1].id].match_count++;
 
-        let possibleCombos = [
-            { tA: [p1, p2], tB: [p3, p4] },
-            { tA: [p1, p3], tB: [p2, p4] },
-            { tA: [p1, p4], tB: [p2, p3] }
-        ];
+    sessionPartnerLast[pairKey(bestCombo.tA[0].id, bestCombo.tA[1].id)] = gameNo;
+    sessionPartnerLast[pairKey(bestCombo.tB[0].id, bestCombo.tB[1].id)] = gameNo;
+    [bestCombo.tA[0].id, bestCombo.tA[1].id].forEach(a => {
+        [bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(b => { sessionOpponentLast[pairKey(a, b)] = gameNo; });
+    });
 
-        let bestCombo = possibleCombos[0];
-        let minScore = Infinity;
-
-        possibleCombos.forEach(combo => {
-            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-            
-            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-
-            let totalWeight = (partnerScore * 5) + opponentScore + (Math.random() * 0.5);
-
-            if (totalWeight < minScore) {
-                minScore = totalWeight;
-                bestCombo = combo;
-            }
-        });
-
-        [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
-            tempPlayers[p.id].match_count++;
-            tempPlayers[p.id].last_played_match = i;
-        });
-
-        newMatchesObj[`m_${i}`] = {
-            id: `m_${i}`, 
-            gameNo: i,
+    const matchId = `m_${gameNo}`;
+    return {
+        playerIds: [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id],
+        match: {
+            id: matchId, gameNo: gameNo,
             pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
             pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
             pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
             pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id,
-            status: 'pending', 
-            winner: '', 
-            scoreA: 0, 
-            scoreB: 0
-        };
-    }
+            status: 'pending', winner: '', scoreA: 0, scoreB: 0
+        }
+    };
+}
 
-    const finalSchedule = { ...existingDoneMatches, ...newMatchesObj };
-    db.ref('badminton/current_schedule').set(finalSchedule);
-};
+function pairKey(id1, id2) {
+    return id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
+}
 
-function autoBalanceCurrentSchedule() {
-    generateFairMatches(true);
+// Higher penalty the more recently a pair met in this session; fades to 0 after `span` matches.
+function recencyPenalty(map, key, currentGameNo, strength) {
+    if (!map[key]) return 0;
+    const distance = currentGameNo - map[key];
+    if (distance <= 0) return strength;
+    const span = 4;
+    if (distance >= span) return 0;
+    return strength * (span - distance) / span;
 }
 
 function getHistoryScore(id1, id2, tipe) {
@@ -563,7 +552,7 @@ function getHistoryScore(id1, id2, tipe) {
 }
 
 // ==========================================
-// SUBMIT & EDIT LINEUP DENGAN BALANCING OTOMATIS
+// SUBMIT SKOR GAME
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -609,135 +598,15 @@ window.bukaEditSkorGame = function(matchId) {
     db.ref(`badminton/current_schedule/${matchId}`).update({ status: 'pending' });
 };
 
-window.bukaEditLineupModal = function(matchId) {
-    const match = currentSchedule[matchId];
-    if (!match) return;
-
-    document.getElementById('edit-match-id-target').value = matchId;
-    const activePlayers = Object.values(globalPlayers).filter(p => p.is_active).sort((a,b)=> a.name.localeCompare(b.name));
-
-    ['select-edit-pA1', 'select-edit-pA2', 'select-edit-pB1', 'select-edit-pB2'].forEach(selId => {
-        const sel = document.getElementById(selId);
-        if (!sel) return;
-        let html = `<option value="">-- Select Player --</option>`;
-        activePlayers.forEach(p => {
-            html += `<option value="${p.id}">${p.name}</option>`;
-        });
-        sel.innerHTML = html;
-    });
-
-    if (match.idA1) document.getElementById('select-edit-pA1').value = match.idA1;
-    if (match.idA2) document.getElementById('select-edit-pA2').value = match.idA2;
-    if (match.idB1) document.getElementById('select-edit-pB1').value = match.idB1;
-    if (match.idB2) document.getElementById('select-edit-pB2').value = match.idB2;
-
-    document.getElementById('modal-edit-lineup').classList.remove('hidden');
-};
-
-window.closeEditLineupModal = function() {
-    document.getElementById('modal-edit-lineup').classList.add('hidden');
-};
-
-// BALANCING SYSTEM PADA EDIT LINEUP
-window.saveAndRebalanceLineup = function() {
-    const matchId = document.getElementById('edit-match-id-target').value;
-    const pA1Id = document.getElementById('select-edit-pA1').value;
-    const pA2Id = document.getElementById('select-edit-pA2').value;
-    const pB1Id = document.getElementById('select-edit-pB1').value;
-    const pB2Id = document.getElementById('select-edit-pB2').value;
-
-    if (!pA1Id || !pA2Id || !pB1Id || !pB2Id) {
-        alert("Semua 4 slot pemain harus terisi!");
-        return;
-    }
-
-    if (new Set([pA1Id, pA2Id, pB1Id, pB2Id]).size !== 4) {
-        alert("Setiap pemain hanya boleh dipilih sekali dalam satu match yang sama!");
-        return;
-    }
-
-    let match = currentSchedule[matchId];
-    if (!match) return;
-
-    match.idA1 = pA1Id; match.pA1 = globalPlayers[pA1Id]?.name || '';
-    match.idA2 = pA2Id; match.pA2 = globalPlayers[pA2Id]?.name || '';
-    match.idB1 = pB1Id; match.pB1 = globalPlayers[pB1Id]?.name || '';
-    match.idB2 = pB2Id; match.pB2 = globalPlayers[pB2Id]?.name || '';
-
-    let updates = {};
-    updates[`badminton/current_schedule/${matchId}`] = match;
-
-    // Hitung ulang akumulasi jam terbang (match_count) untuk re-balancing match berikutnya
-    let playerMatchCounts = {};
-    Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
-
-    const sortedMatches = Object.values(currentSchedule).sort((a,b)=> a.gameNo - b.gameNo);
-    sortedMatches.forEach(m => {
-        if (m.id === matchId) {
-            [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
-        } else if (m.gameNo > match.gameNo && m.status === 'pending') {
-            // Re-balancing otomatis untuk match setelahnya agar jam terbang tetap adil
-            let activePool = Object.values(globalPlayers).filter(p => p.is_active);
-            activePool.sort((a, b) => {
-                let countA = playerMatchCounts[a.id] || 0;
-                let countB = playerMatchCounts[b.id] || 0;
-                if (countA !== countB) return countA - countB;
-                return Math.random() - 0.5;
-            });
-            
-            let selected = activePool.slice(0, 4);
-            if (selected.length >= 4) {
-                // Terapkan sistem kombinasi cerdas untuk match yang di-rebalance
-                let possibleCombos = [
-                    { tA: [selected[0], selected[1]], tB: [selected[2], selected[3]] },
-                    { tA: [selected[0], selected[2]], tB: [selected[1], selected[3]] },
-                    { tA: [selected[0], selected[3]], tB: [selected[1], selected[2]] }
-                ];
-                let bestCombo = possibleCombos[0];
-                let minScore = Infinity;
-
-                possibleCombos.forEach(combo => {
-                    let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                                       getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-                    let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                        getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                        getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-                    let totalWeight = (partnerScore * 5) + opponentScore;
-                    if (totalWeight < minScore) {
-                        minScore = totalWeight;
-                        bestCombo = combo;
-                    }
-                });
-
-                m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
-                m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
-                m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
-                m.idB2 = bestCombo.tB[1].id; m.pB2 = bestCombo.tB[1].name;
-
-                [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(id => {
-                    playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
-                });
-                updates[`badminton/current_schedule/${m.id}`] = m;
-            }
-        } else {
-            [m.idA1, m.idA2, m.idB1, m.idB2].forEach(id => {
-                if (id) playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
-            });
-        }
-    });
-
-    db.ref().update(updates).then(() => {
-        closeEditLineupModal();
-        alert("Lineup berhasil diperbarui dan sisa match berhasil di-rebalance secara adil!");
-    });
-};
-
+// ==========================================
+// CANCEL / RESET CURRENT MATCH SESSION
+// ==========================================
 window.batalSesiMatch = function() {
-    if (!confirm("Are you sure you want to cancel and clear the current schedule?")) return;
+    if (!confirm("Are you sure you want to cancel and clear the current generated matches?")) return;
 
     let updates = {};
     updates['badminton/current_schedule'] = null;
+
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
     });
@@ -757,57 +626,179 @@ function updateScheduleList() {
         const isDone = m.status === 'done';
         const displayScoreA = m.scoreA || 0;
         const displayScoreB = m.scoreB || 0;
+        const isEditingPemain = !isDone && editingScheduleMatchId === m.id;
 
         html += `
             <div id="card-match-no-${m.gameNo}" class="bg-[#0B0F17] p-3 rounded-xl border ${isDone ? 'border-slate-900 opacity-60' : 'border-slate-800/80'} shadow-inner w-full">
                 <div class="flex justify-between items-center text-[9px] text-slate-500 font-bold mb-2 tracking-wider">
                     <span>MATCH #${m.gameNo}</span>
-                    <div class="flex items-center gap-2">
-                        <button onclick="bukaEditLineupModal('${m.id}')" class="text-amber-400 hover:underline uppercase font-bold">✏️ Edit Lineup</button>
-                        <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
-                    </div>
-                </div>
-                
-                <div class="flex items-center justify-between text-xs font-bold gap-1 w-full">
-                    <div class="w-[38%] p-1.5 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
-                    
-                    <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
-                        ${isDone ? `
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreA}</span>
-                            <span class="text-slate-600 text-[10px]">:</span>
-                            <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreB}</span>
-                        ` : `
-                            <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
-                            <span class="text-slate-700 text-[10px]">:</span>
-                            <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
-                        `}
-                    </div>
-
-                    <div class="w-[38%] p-1.5 rounded-lg truncate text-right ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pB1} & ${m.pB2}</div>
+                    <span class="${isDone ? 'text-emerald-500':'text-[#FF5722]'} uppercase font-black">${m.status}</span>
                 </div>
 
-                ${!isDone ? `
-                    <button onclick="submitSkorGame('${m.id}')" class="w-full mt-2 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1 rounded-lg text-[9px] transition uppercase tracking-widest">💾 Save Score</button>
+                ${isEditingPemain ? `
+                    <div class="grid grid-cols-2 gap-1.5 mb-2">
+                        <div class="space-y-1.5">
+                            <select id="edit-pA1-${m.id}" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-[10px] text-white focus:outline-none focus:border-[#FF5722]">${buildActivePlayerOptionsHtml(m.idA1)}</select>
+                            <select id="edit-pA2-${m.id}" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-[10px] text-white focus:outline-none focus:border-[#FF5722]">${buildActivePlayerOptionsHtml(m.idA2)}</select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <select id="edit-pB1-${m.id}" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-[10px] text-white focus:outline-none focus:border-[#FF5722]">${buildActivePlayerOptionsHtml(m.idB1)}</select>
+                            <select id="edit-pB2-${m.id}" class="w-full bg-[#1E2638] border border-slate-800 rounded-lg p-1.5 text-[10px] text-white focus:outline-none focus:border-[#FF5722]">${buildActivePlayerOptionsHtml(m.idB2)}</select>
+                        </div>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="simpanEditPemainMatch('${m.id}')" class="flex-1 bg-[#FF5722] hover:bg-[#e04a1b] text-white font-bold py-1.5 rounded-lg text-[9px] transition uppercase tracking-widest">💾 Simpan &amp; Auto-Balance</button>
+                        <button onclick="batalEditPemainMatch()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-3 py-1.5 rounded-lg text-[9px] transition">Batal</button>
+                    </div>
                 ` : `
-                    <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-2 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 font-bold py-0.5 rounded-lg text-[8px] transition uppercase tracking-widest">✏️ Edit Score</button>
+                    <div class="flex items-center justify-between text-xs font-bold gap-1 w-full">
+                        <div class="w-[38%] p-1.5 rounded-lg truncate ${isDone && m.winner === 'A' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pA1} & ${m.pA2}</div>
+
+                        <div class="flex items-center justify-center gap-0.5 w-[24%] shrink-0">
+                            ${isDone ? `
+                                <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreA}</span>
+                                <span class="text-slate-600 text-[10px]">:</span>
+                                <span class="text-xs font-black text-white bg-[#1E2638] px-1.5 py-0.5 rounded">${displayScoreB}</span>
+                            ` : `
+                                <input type="number" id="input-score-A-${m.id}" value="${displayScoreA}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
+                                <span class="text-slate-700 text-[10px]">:</span>
+                                <input type="number" id="input-score-B-${m.id}" value="${displayScoreB}" class="w-7 sm:w-8 bg-[#1E2638] border border-slate-800 rounded text-center text-xs py-0.5 text-[#FF5722] font-extrabold focus:outline-none">
+                            `}
+                        </div>
+
+                        <div class="w-[38%] p-1.5 rounded-lg truncate text-right ${isDone && m.winner === 'B' ? 'bg-[#FF5722]/10 border border-[#FF5722]/30 text-[#FF5722]' : 'bg-[#1E2638] text-slate-300'}">${m.pB1} & ${m.pB2}</div>
+                    </div>
+
+                    ${!isDone ? `
+                        <div class="flex gap-1.5 mt-2">
+                            <button onclick="submitSkorGame('${m.id}')" class="flex-1 bg-[#1E2638] hover:bg-[#FF5722] hover:text-white text-slate-400 font-bold py-1 rounded-lg text-[9px] transition uppercase tracking-widest">💾 Save Score</button>
+                            <button onclick="mulaiEditPemainMatch('${m.id}')" class="bg-[#1E2638] hover:bg-slate-700 text-slate-400 font-bold px-2.5 py-1 rounded-lg text-[9px] transition uppercase tracking-widest">✏️ Edit Pemain</button>
+                        </div>
+                    ` : `
+                        <button onclick="bukaEditSkorGame('${m.id}')" class="w-full mt-2 bg-[#0B0F17] hover:bg-slate-800 text-slate-500 font-bold py-0.5 rounded-lg text-[8px] transition uppercase tracking-widest">✏️ Edit Score</button>
+                    `}
                 `}
             </div>
         `;
     });
 
-    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Full Rotation' button.</p>`;
+    container.innerHTML = html || `<p class="text-slate-600 text-xs text-center py-6">Tap 'Generate Matches' button.</p>`;
 
     if (resetContainer) {
         if (mList.length > 0) {
             resetContainer.innerHTML = `
                 <button onclick="batalSesiMatch()" class="w-full bg-red-950/30 hover:bg-red-900/60 text-red-400 border border-red-900/30 font-bold text-xs py-2.5 px-3 rounded-xl transition duration-150 uppercase tracking-wider flex items-center justify-center gap-1.5">
-                    <span>🚫</span> Cancel / Reset Current Schedule
+                    <span>🚫</span> Cancel / Reset Current Matches
                 </button>
             `;
         } else {
             resetContainer.innerHTML = '';
         }
     }
+}
+
+// ==========================================
+// EDIT PLAYERS INSIDE A MATCH + AUTO-REBALANCE DOWNSTREAM
+// ==========================================
+function buildActivePlayerOptionsHtml(selectedId) {
+    const activePlayers = Object.values(globalPlayers).filter(p => p.is_active).sort((a,b)=> a.name.localeCompare(b.name));
+    let opts = `<option value="">-- Pilih Pemain --</option>`;
+    activePlayers.forEach(p => {
+        opts += `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name}</option>`;
+    });
+    return opts;
+}
+
+window.mulaiEditPemainMatch = function(matchId) {
+    editingScheduleMatchId = matchId;
+    updateScheduleList();
+};
+
+window.batalEditPemainMatch = function() {
+    editingScheduleMatchId = null;
+    updateScheduleList();
+};
+
+window.simpanEditPemainMatch = function(matchId) {
+    const match = currentSchedule[matchId];
+    if (!match) return;
+
+    const newIdA1 = document.getElementById(`edit-pA1-${matchId}`).value;
+    const newIdA2 = document.getElementById(`edit-pA2-${matchId}`).value;
+    const newIdB1 = document.getElementById(`edit-pB1-${matchId}`).value;
+    const newIdB2 = document.getElementById(`edit-pB2-${matchId}`).value;
+    const ids = [newIdA1, newIdA2, newIdB1, newIdB2];
+
+    if (ids.some(id => !id)) { alert("Pilih ke-4 pemain terlebih dahulu!"); return; }
+    if (new Set(ids).size !== 4) { alert("Ke-4 pemain di dalam satu match harus berbeda!"); return; }
+
+    const updatedMatch = {
+        ...match,
+        idA1: newIdA1, pA1: globalPlayers[newIdA1]?.name || 'Player',
+        idA2: newIdA2, pA2: globalPlayers[newIdA2]?.name || 'Player',
+        idB1: newIdB1, pB1: globalPlayers[newIdB1]?.name || 'Player',
+        idB2: newIdB2, pB2: globalPlayers[newIdB2]?.name || 'Player'
+    };
+
+    let scheduleUpdates = { [`badminton/current_schedule/${matchId}`]: updatedMatch };
+
+    // Rebalance every not-yet-played match AFTER this one so the swap doesn't
+    // break fairness or the "no repeat pairing" / "no back-to-back" rules.
+    Object.assign(scheduleUpdates, rebalanceScheduleFrom(matchId, updatedMatch));
+
+    editingScheduleMatchId = null;
+    db.ref().update(scheduleUpdates);
+};
+
+// Recomputes every pending match that comes after `editedMatchId`, treating
+// everything up to and including the edited match as locked.
+function rebalanceScheduleFrom(editedMatchId, updatedMatch) {
+    const allMatches = Object.values(currentSchedule).sort((a,b) => a.gameNo - b.gameNo);
+    const editedIndex = allMatches.findIndex(m => m.id === editedMatchId);
+    if (editedIndex === -1) return {};
+
+    // Replay the locked portion of the schedule to reconstruct match_count,
+    // and the last-seen partner/opponent maps, as of right after the edit.
+    let tempPlayers = JSON.parse(JSON.stringify(globalPlayers));
+    let sessionPartnerLast = {};
+    let sessionOpponentLast = {};
+    let lastMatchPlayerIds = [];
+
+    for (let i = 0; i <= editedIndex; i++) {
+        const m = (allMatches[i].id === editedMatchId) ? updatedMatch : allMatches[i];
+        const ids = [m.idA1, m.idA2, m.idB1, m.idB2].filter(Boolean);
+
+        // 'done' matches already bumped the real match_count via submitSkorGame;
+        // only simulate the increment here for matches still pending.
+        if (m.status !== 'done') {
+            ids.forEach(id => { if (tempPlayers[id]) tempPlayers[id].match_count++; });
+        }
+
+        if (m.idA1 && m.idA2) sessionPartnerLast[pairKey(m.idA1, m.idA2)] = m.gameNo;
+        if (m.idB1 && m.idB2) sessionPartnerLast[pairKey(m.idB1, m.idB2)] = m.gameNo;
+        [m.idA1, m.idA2].forEach(a => { [m.idB1, m.idB2].forEach(b => { if (a && b) sessionOpponentLast[pairKey(a, b)] = m.gameNo; }); });
+
+        lastMatchPlayerIds = ids;
+    }
+
+    const activeIds = Object.values(globalPlayers).filter(p => p.is_active).map(p => p.id);
+    const updates = {};
+
+    for (let i = editedIndex + 1; i < allMatches.length; i++) {
+        const m = allMatches[i];
+        if (m.status === 'done') { // finished matches are untouchable, just carry state forward
+            lastMatchPlayerIds = [m.idA1, m.idA2, m.idB1, m.idB2];
+            continue;
+        }
+
+        const generated = pickNextMatch(m.gameNo, activeIds, tempPlayers, lastMatchPlayerIds, sessionPartnerLast, sessionOpponentLast);
+        if (!generated) break; // not enough active players left to keep filling remaining slots
+
+        updates[`badminton/current_schedule/${m.id}`] = { ...generated.match, id: m.id, gameNo: m.gameNo };
+        lastMatchPlayerIds = generated.playerIds;
+    }
+
+    return updates;
 }
 
 // ==========================================
@@ -842,28 +833,10 @@ window.simpanSesiHarian = function() {
             scoreA: valA, scoreB: valB,
             winner: valA >= valB ? 'A' : 'B'
         };
-
-        if (m.idA1 && m.idA2) {
-            const k = m.idA1 < m.idA2 ? `${m.idA1}_${m.idA2}` : `${m.idA2}_${m.idA1}`;
-            updates[`badminton/history/${k}/partner`] = (globalHistory[k]?.partner || 0) + 1;
-        }
-        if (m.idB1 && m.idB2) {
-            const k = m.idB1 < m.idB2 ? `${m.idB1}_${m.idB2}` : `${m.idB2}_${m.idB1}`;
-            updates[`badminton/history/${k}/partner`] = (globalHistory[k]?.partner || 0) + 1;
-        }
-        [m.idA1, m.idA2].forEach(aId => {
-            [m.idB1, m.idB2].forEach(bId => {
-                if (aId && bId) {
-                    const k = aId < bId ? `${aId}_${bId}` : `${bId}_${aId}`;
-                    updates[`badminton/history/${k}/opponent`] = (globalHistory[k]?.opponent || 0) + 1;
-                }
-            });
-        });
     });
 
     Object.keys(globalPlayers).forEach(id => {
         updates[`badminton/players/${id}/match_count`] = 0;
-        updates[`badminton/players/${id}/is_active`] = false;
     });
 
     updates['badminton/current_schedule'] = null;
@@ -898,7 +871,7 @@ window.resetFilterPeriode = function() {
 };
 
 // ==========================================
-// ADMIN PANEL CRUD LOGIC
+// ADMIN PANEL CRUD LOGIC (INSERT, EDIT, DELETE)
 // ==========================================
 function populateAdminPlayerDropdowns() {
     const ids = ['admin-select-pA1', 'admin-select-pA2', 'admin-select-pB1', 'admin-select-pB2'];
@@ -914,6 +887,7 @@ function populateAdminPlayerDropdowns() {
         sel.innerHTML = opts;
     });
 
+    // Default Tanggal Hari Ini untuk Form Insert
     const dateInput = document.getElementById('admin-match-date');
     if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().split('T')[0];
@@ -926,6 +900,8 @@ function renderAdminMatchesList() {
     if (!container) return;
 
     const allLogs = Object.entries(matchHistoryLogs);
+    
+    // Filter berdasarkan Periode YYYY-MM yang dipilih
     const filteredEntries = allLogs.filter(([id, log]) => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -1013,6 +989,7 @@ window.mulaiEditAdmin = function(logId) {
     if (!log) return;
 
     editingMatchLogId = logId;
+    
     document.getElementById('form-admin-title').innerText = "✏️ Edit Match Entry";
     document.getElementById('btn-admin-submit').innerText = "💾 Update Match Data";
     document.getElementById('btn-admin-cancel-edit').classList.remove('hidden');
@@ -1057,7 +1034,7 @@ window.hapusAdminMatch = function(logId) {
 };
 
 // ==========================================
-// LEADERBOARD & MODALS
+// HITUNGAN WIN/LOSE LEADERBOARD DINAMIS
 // ==========================================
 function updateLeaderboardList() {
     const tbody = document.getElementById('container-leaderboard-body');
@@ -1066,6 +1043,7 @@ function updateLeaderboardList() {
     if (!tbody || !matchesContainer) return;
 
     const allLogs = Object.values(matchHistoryLogs);
+    
     const filteredLogs = allLogs.filter(log => {
         if (selectedPeriod === 'ALL') return true;
         const logPeriod = extractIsoPeriod(log);
@@ -1073,6 +1051,7 @@ function updateLeaderboardList() {
     });
 
     let playerStatsMap = {};
+
     if (selectedPeriod === 'ALL') {
         Object.values(globalPlayers).forEach(p => {
             playerStatsMap[p.id] = { id: p.id, name: p.name, win: 0, lose: 0 };
@@ -1111,23 +1090,25 @@ function updateLeaderboardList() {
     playersList.sort((a,b) => b.rate - a.rate || b.win - a.win || a.name.localeCompare(b.name));
 
     let lbHtml = '';
-    playersList.forEach((p, idx) => {
-        lbHtml += `
-            <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
-                <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
-                <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
-                    <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
-                        ${p.name}
-                    </span>
-                </td>
-                <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
-                <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
-                <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
-            </tr>
-        `;
-    });
+    if (playersList.length > 0) {
+        playersList.forEach((p, idx) => {
+            lbHtml += `
+                <tr class="bg-[#1E2638]/40 border-b border-slate-900/60 font-semibold text-xs">
+                    <td class="py-2.5 px-1 text-center text-slate-500 font-bold">${idx + 1}</td>
+                    <td class="py-2.5 px-1.5 text-white truncate max-w-[120px]">
+                        <span onclick="openHistoryModal('${p.id}', '${p.name}')" class="text-slate-200 hover:text-[#FF5722] cursor-pointer underline decoration-dashed decoration-[#FF5722]/40 transition duration-150 font-bold truncate block">
+                            ${p.name}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-bold">${p.win}</td>
+                    <td class="py-2.5 px-1 text-center text-slate-400 font-bold">${p.lose}</td>
+                    <td class="py-2.5 px-1 text-center text-[#FF5722] font-black">${p.rate}%</td>
+                </tr>
+            `;
+        });
+    }
 
-    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available.</td></tr>`;
+    tbody.innerHTML = lbHtml || `<tr><td colspan="5" class="text-center text-slate-500 py-6 text-xs italic">No match data available for this month/year.</td></tr>`;
 
     const countElem = document.getElementById('total-matches-count');
     if (countElem) countElem.innerText = `${filteredLogs.length} Matches`;
@@ -1157,18 +1138,23 @@ function updateLeaderboardList() {
     matchesContainer.innerHTML = matchesHtml || `<p class="text-slate-500 text-xs text-center py-6 italic">No match history available.</p>`;
 }
 
+// ==========================================
+// MODAL POPUP OPERATIONAL
+// ==========================================
 window.openHistoryModal = function(playerId, playerName) {
     const modal = document.getElementById('modal-history');
     const title = document.getElementById('modal-player-name');
     const content = document.getElementById('modal-history-content');
     
     if (!modal || !title || !content) return;
+
     title.innerText = playerName;
 
     const logsArray = Object.values(matchHistoryLogs).filter(log => {
         const isPlayerInMatch = (log.idA1 === playerId || log.idA2 === playerId || log.idB1 === playerId || log.idB2 === playerId);
         const logPeriod = extractIsoPeriod(log);
         const matchPeriod = (selectedPeriod === 'ALL' || logPeriod === selectedPeriod);
+
         return isPlayerInMatch && matchPeriod;
     });
 
@@ -1177,34 +1163,39 @@ window.openHistoryModal = function(playerId, playerName) {
         const valA = parseInt(log.scoreA || 0);
         const valB = parseInt(log.scoreB || 0);
         const isTeamAWin = log.winner ? (log.winner === 'A') : (valA >= valB);
+
         const isTeamA = (log.idA1 === playerId || log.idA2 === playerId);
         const isWinner = (isTeamA && isTeamAWin) || (!isTeamA && !isTeamAWin);
         
         const partnerName = isTeamA ? (log.idA1 === playerId ? log.pA2 : log.pA1) : (log.idB1 === playerId ? log.pB2 : log.pB1);
         const opponentString = isTeamA ? `${log.pB1} / ${log.pB2}` : `${log.pA1} / ${log.pA2}`;
+        
         const myTeamScore = isTeamA ? valA : valB;
         const opponentScore = isTeamA ? valB : valA;
+        const finalScoreStr = `${myTeamScore} - ${opponentScore}`;
         
+        const matchDate = log.date || '';
+
         modalRowsHtml += `
             <div class="bg-[#0B0F17] p-2 rounded-xl border border-slate-800/80 space-y-1">
                 <div class="flex justify-between items-center text-[10px]">
                     <span class="font-black px-1.5 py-0.5 rounded text-[8px] ${isWinner ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-900/30' : 'bg-red-950/50 text-red-400 border border-red-900/30'} shrink-0">
                         ${isWinner ? 'WIN' : 'LOSE'}
                     </span>
-                    <span class="text-[9px] text-slate-500 font-semibold">${log.date || ''}</span>
+                    <span class="text-[9px] text-slate-500 font-semibold">${matchDate}</span>
                 </div>
                 <div class="flex justify-between items-center text-[10px] gap-1">
                     <div class="text-slate-300 truncate flex-1 min-w-0">
                         <span class="text-slate-500">w/</span> <strong class="text-slate-200">${partnerName}</strong> 
                         <span class="text-slate-600 font-bold">vs</span> <span class="text-slate-400">${opponentString}</span>
                     </div>
-                    <span class="text-white font-black shrink-0 bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${myTeamScore} - ${opponentScore}</span>
+                    <span class="text-white font-black shrink-0 bg-[#1E2638] px-1.5 py-0.5 rounded border border-slate-800 text-[9px]">${finalScoreStr}</span>
                 </div>
             </div>
         `;
     });
 
-    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No match history available.</div>`;
+    content.innerHTML = modalRowsHtml || `<div class="text-xs text-slate-500 italic text-center py-6">No match history available for this period.</div>`;
     modal.classList.remove('hidden');
 };
 
