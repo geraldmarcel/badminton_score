@@ -902,7 +902,7 @@ function renderAdminMatchesList() {
                     <span class="bg-[#1E2638] px-1.5 py-0.5 rounded text-white font-black text-[11px] border border-slate-800">${log.scoreA} - ${log.scoreB}</span>
                     <div class="text-[8px] text-slate-600 mt-0.5">${log.date || ''}</div>
                 </div>
-                <div class="w-[34%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722]' : 'text-slate-400'}">
+                <div class="w-[34%] text-right truncate ${!isTeamAWin ? 'text-[#FF5722] font-black' : 'text-slate-400'}">
                     ${log.pB1 || 'P1'} & ${log.pB2 || 'P2'}
                 </div>
                 <div class="flex items-center gap-1 shrink-0 ml-1">
