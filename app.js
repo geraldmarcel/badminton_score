@@ -468,7 +468,8 @@ function findBestMatchup(pool) {
     if (pool.length < 4) return null;
     
     let minMatchCount = pool[0].match_count;
-    let candidatePool = pool.slice(0, Math.min(pool.length, 10));
+    // Diperbesar agar opsi kombinasi pemain jauh lebih bervariasi
+    let candidatePool = pool.slice(0, Math.min(pool.length, 16));
     let quadCombos = getCombinations(candidatePool, 4);
 
     let bestCombo = null;
@@ -482,7 +483,8 @@ function findBestMatchup(pool) {
             { tA: [p1, p4], tB: [p2, p3] }
         ];
 
-        let matchCountPenalty = quad.reduce((sum, p) => sum + ((p.match_count - minMatchCount) * 25), 0);
+        // Penalti match count diperbesar agar pemain yang jarang main lebih diprioritaskan
+        let matchCountPenalty = quad.reduce((sum, p) => sum + ((p.match_count - minMatchCount) * 60), 0);
 
         teamConfigs.forEach(combo => {
             let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
@@ -493,7 +495,8 @@ function findBestMatchup(pool) {
                                 getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
                                 getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
 
-            let totalWeight = (partnerScore * 20) + (opponentScore * 5) + matchCountPenalty + (Math.random() * 0.5);
+            // Bobot partner diturunkan dan faktor random diperbesar untuk menghilangkan perulangan monoton
+            let totalWeight = (partnerScore * 8) + (opponentScore * 2) + matchCountPenalty + (Math.random() * 5.0);
 
             if (totalWeight < minScore) {
                 minScore = totalWeight;
