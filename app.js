@@ -493,7 +493,7 @@ function findBestMatchup(pool) {
                                 getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
                                 getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
 
-            let totalWeight = (partnerScore * 15) + (opponentScore * 5) + matchCountPenalty + (Math.random() * 0.5);
+            let totalWeight = (partnerScore * 20) + (opponentScore * 5) + matchCountPenalty + (Math.random() * 0.5);
 
             if (totalWeight < minScore) {
                 minScore = totalWeight;
@@ -544,7 +544,7 @@ window.generateFairMatches = function(preserveDone = true) {
 
     let startingGameNo = Object.keys(existingDoneMatches).length + 1;
     let totalActive = activePlayers.length;
-    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 3) / 4)); 
+    let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 10) / 4)); 
     let endingGameNo = startingGameNo + targetTotalMatches;
 
     for (let i = startingGameNo; i < endingGameNo; i++) {
