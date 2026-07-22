@@ -439,77 +439,7 @@ function updateAbsenHariIniList() {
 }
 
 // ==========================================
-// HELPER: SMART MATCHMAKING (MENCEGAH MONOTON)
-// ==========================================
-function getHistoryScore(id1, id2, tipe) {
-    const key = id1 < id2 ? `${id1}_${id2}` : `${id2}_${id1}`;
-    if (globalHistory[key] && globalHistory[key][tipe]) return globalHistory[key][tipe];
-    return 0;
-}
-
-function getCombinations(array, k) {
-    let results = [];
-    function run(level, start) {
-        if(level.length === k) {
-            results.push([...level]);
-            return;
-        }
-        for(let i = start; i < array.length; i++) {
-            level.push(array[i]);
-            run(level, i + 1);
-            level.pop();
-        }
-    }
-    run([], 0);
-    return results;
-}
-
-function findBestMatchup(pool) {
-    if (pool.length < 4) return null;
-    
-    let minMatchCount = pool[0].match_count;
-    // Diperbesar agar opsi kombinasi pemain jauh lebih bervariasi
-    let candidatePool = pool.slice(0, Math.min(pool.length, 16));
-    let quadCombos = getCombinations(candidatePool, 4);
-
-    let bestCombo = null;
-    let minScore = Infinity;
-
-    quadCombos.forEach(quad => {
-        let p1 = quad[0], p2 = quad[1], p3 = quad[2], p4 = quad[3];
-        let teamConfigs = [
-            { tA: [p1, p2], tB: [p3, p4] },
-            { tA: [p1, p3], tB: [p2, p4] },
-            { tA: [p1, p4], tB: [p2, p3] }
-        ];
-
-        // Penalti match count diperbesar agar pemain yang jarang main lebih diprioritaskan
-        let matchCountPenalty = quad.reduce((sum, p) => sum + ((p.match_count - minMatchCount) * 60), 0);
-
-        teamConfigs.forEach(combo => {
-            let partnerScore = getHistoryScore(combo.tA[0].id, combo.tA[1].id, 'partner') + 
-                               getHistoryScore(combo.tB[0].id, combo.tB[1].id, 'partner');
-            
-            let opponentScore = getHistoryScore(combo.tA[0].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[0].id, combo.tB[1].id, 'opponent') +
-                                getHistoryScore(combo.tA[1].id, combo.tB[0].id, 'opponent') + 
-                                getHistoryScore(combo.tA[1].id, combo.tB[1].id, 'opponent');
-
-            // Bobot partner diturunkan dan faktor random diperbesar untuk menghilangkan perulangan monoton
-            let totalWeight = (partnerScore * 8) + (opponentScore * 2) + matchCountPenalty + (Math.random() * 5.0);
-
-            if (totalWeight < minScore) {
-                minScore = totalWeight;
-                bestCombo = combo;
-            }
-        });
-    });
-
-    return bestCombo;
-}
-
-// ==========================================
-// FULL ROTATION FAIR MATCHES GENERATOR 
+// FULL ROTATION MATCHMAKING (Diadopsi dari Script 1)
 // ==========================================
 window.generateFairMatches = function(preserveDone = true) {
     const activePlayers = Object.values(globalPlayers).filter(p => p.is_active);
@@ -523,22 +453,22 @@ window.generateFairMatches = function(preserveDone = true) {
         tempPlayers[p.id] = { 
             id: p.id, 
             name: p.name, 
-            match_count: 0, 
-            last_played_match: -5 
+            match_count: p.match_count || 0 
         };
     });
 
     let newMatchesObj = {};
     let existingDoneMatches = {};
 
+    // Amankan data match yang sudah selesai
     if (preserveDone && currentSchedule) {
         Object.values(currentSchedule).forEach(m => {
             if (m.status === 'done') {
                 existingDoneMatches[m.id] = m;
+                // Update stats untuk yang sudah benar-benar bermain
                 [m.idA1, m.idA2, m.idB1, m.idB2].forEach(pId => {
                     if (pId && tempPlayers[pId]) {
                         tempPlayers[pId].match_count++;
-                        tempPlayers[pId].last_played_match = m.gameNo;
                     }
                 });
             }
@@ -547,45 +477,53 @@ window.generateFairMatches = function(preserveDone = true) {
 
     let startingGameNo = Object.keys(existingDoneMatches).length + 1;
     let totalActive = activePlayers.length;
+    // Tentukan jumlah total matches yang ingin digenerate (target)
     let targetTotalMatches = Math.max(4, Math.ceil((totalActive * 10) / 4)); 
-    let endingGameNo = startingGameNo + targetTotalMatches;
+    let gameNo = startingGameNo;
 
-    for (let i = startingGameNo; i < endingGameNo; i++) {
+    // Lakukan rotasi / per putaran
+    while (gameNo < startingGameNo + targetTotalMatches) {
         let pool = Object.values(tempPlayers);
         
-        pool.sort((a, b) => {
-            let restA = i - a.last_played_match;
-            let restB = i - b.last_played_match;
+        // 1. Urutkan pemain berdasarkan yang paling sedikit bermain/istirahat untuk keadilan
+        pool.sort((a, b) => a.match_count - b.match_count);
+
+        // 2. Tentukan siapa yang istirahat jika jumlah pemain tidak pas kelipatan 4
+        let activeCount = Math.floor(pool.length / 4) * 4;
+        let activeForRound = pool.slice(0, activeCount);
+        // let restingPlayers = pool.slice(activeCount); // Sisa pemain ini istirahat putaran ini
+
+        // 3. Acak pemain aktif agar kombinasinya bervariasi
+        activeForRound.sort(() => Math.random() - 0.5);
+
+        // 4. Bagi pemain aktif ke dalam beberapa match (masing-masing 4 orang)
+        for (let i = 0; i < activeForRound.length; i += 4) {
+            if (gameNo >= startingGameNo + targetTotalMatches) break;
+
+            let matchPlayers = activeForRound.slice(i, i + 4);
+            let [p1, p2, p3, p4] = matchPlayers;
+
+            // Catat statistik main di memori agar rotasi berikutnya adil
+            p1.match_count++;
+            p2.match_count++;
+            p3.match_count++;
+            p4.match_count++;
+
+            newMatchesObj[`m_${gameNo}`] = {
+                id: `m_${gameNo}`, 
+                gameNo: gameNo,
+                pA1: p1.name, idA1: p1.id,
+                pA2: p2.name, idA2: p2.id,
+                pB1: p3.name, idB1: p3.id,
+                pB2: p4.name, idB2: p4.id,
+                status: 'pending', 
+                winner: '', 
+                scoreA: 0, 
+                scoreB: 0
+            };
             
-            if (restA < 2 && restB >= 2) return 1;
-            if (restB < 2 && restA >= 2) return -1;
-            
-            if (a.match_count !== b.match_count) {
-                return a.match_count - b.match_count;
-            }
-            return Math.random() - 0.5;
-        });
-
-        let bestCombo = findBestMatchup(pool);
-        if (!bestCombo) break;
-
-        [bestCombo.tA[0], bestCombo.tA[1], bestCombo.tB[0], bestCombo.tB[1]].forEach(p => {
-            tempPlayers[p.id].match_count++;
-            tempPlayers[p.id].last_played_match = i;
-        });
-
-        newMatchesObj[`m_${i}`] = {
-            id: `m_${i}`, 
-            gameNo: i,
-            pA1: bestCombo.tA[0].name, idA1: bestCombo.tA[0].id,
-            pA2: bestCombo.tA[1].name, idA2: bestCombo.tA[1].id,
-            pB1: bestCombo.tB[0].name, idB1: bestCombo.tB[0].id,
-            pB2: bestCombo.tB[1].name, idB2: bestCombo.tB[1].id,
-            status: 'pending', 
-            winner: '', 
-            scoreA: 0, 
-            scoreB: 0
-        };
+            gameNo++;
+        }
     }
 
     const finalSchedule = { ...existingDoneMatches, ...newMatchesObj };
@@ -597,7 +535,7 @@ function autoBalanceCurrentSchedule() {
 }
 
 // ==========================================
-// SUBMIT & EDIT LINEUP DENGAN BALANCING OTOMATIS
+// SUBMIT & EDIT LINEUP
 // ==========================================
 window.submitSkorGame = function(matchId) {
     const match = currentSchedule[matchId];
@@ -704,6 +642,7 @@ window.saveAndRebalanceLineup = function() {
     Object.keys(globalPlayers).forEach(id => { playerMatchCounts[id] = 0; });
 
     const sortedMatches = Object.values(currentSchedule).sort((a,b)=> a.gameNo - b.gameNo);
+    
     sortedMatches.forEach(m => {
         if (m.id === matchId) {
             [pA1Id, pA2Id, pB1Id, pB2Id].forEach(id => { playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1; });
@@ -715,20 +654,21 @@ window.saveAndRebalanceLineup = function() {
                 match_count: playerMatchCounts[p.id] || 0
             }));
 
-            tempPool.sort((a, b) => {
-                if (a.match_count !== b.match_count) return a.match_count - b.match_count;
-                return Math.random() - 0.5;
-            });
+            // Algoritma rotasi ulang (Re-balance)
+            tempPool.sort((a, b) => a.match_count - b.match_count);
+            let activeCount = Math.floor(tempPool.length / 4) * 4;
+            let activeForRound = tempPool.slice(0, activeCount);
             
-            let bestCombo = findBestMatchup(tempPool);
+            // Acak
+            activeForRound.sort(() => Math.random() - 0.5);
 
-            if (bestCombo) {
-                m.idA1 = bestCombo.tA[0].id; m.pA1 = bestCombo.tA[0].name;
-                m.idA2 = bestCombo.tA[1].id; m.pA2 = bestCombo.tA[1].name;
-                m.idB1 = bestCombo.tB[0].id; m.pB1 = bestCombo.tB[0].name;
-                m.idB2 = bestCombo.tB[1].id; m.pB2 = bestCombo.tB[1].name;
+            if (activeForRound.length >= 4) {
+                m.idA1 = activeForRound[0].id; m.pA1 = activeForRound[0].name;
+                m.idA2 = activeForRound[1].id; m.pA2 = activeForRound[1].name;
+                m.idB1 = activeForRound[2].id; m.pB1 = activeForRound[2].name;
+                m.idB2 = activeForRound[3].id; m.pB2 = activeForRound[3].name;
 
-                [bestCombo.tA[0].id, bestCombo.tA[1].id, bestCombo.tB[0].id, bestCombo.tB[1].id].forEach(id => {
+                [activeForRound[0].id, activeForRound[1].id, activeForRound[2].id, activeForRound[3].id].forEach(id => {
                     playerMatchCounts[id] = (playerMatchCounts[id] || 0) + 1;
                 });
                 updates[`badminton/current_schedule/${m.id}`] = m;
